@@ -12,7 +12,7 @@
 
 -behavior(df_component).
 %% API
--export([init/3, process/3, options/0, handle_info/2, do_send/5, shutdown/1, metrics/0,
+-export([init/3, process/3, options/0, handle_info/2, do_send/4, shutdown/1, metrics/0,
    check_options/0, quote_identifier/1, check_table_identifier/1, check_column_identifier/1, is_idle/1]).
 
 -record(state, {
@@ -28,6 +28,7 @@
    table_field,
    query,
    query_from_lambda = false :: true|false,
+   headers,
    %% the query point is used when the query is built with a lambda and also to get a decent error message
    %% from CRATE when batch INSERT just returns a -2 for a row, but no error (message)
    query_point :: undefined|#data_point{},
@@ -45,6 +46,7 @@
    error_trace = false,
    pg_client :: pid(),
    buffer = [] :: list(),
+   busy = false :: true | false,
    use_flow_ack = false :: true|false
 }).
 
@@ -56,6 +58,7 @@
 -define(AUTH_HEADER_KEY, <<"Authorization">>).
 -define(QUERY_TIMEOUT, 15000).
 -define(FAILED_RETRIES, 3).
+-define(HEADERS, [{<<"content-type">>, <<"application/json">>}]).
 
 -define(CONNECT_OPTS, #{connect_timeout => 3000}).
 
@@ -110,6 +113,7 @@ init(NodeId, Inputs,
    connection_registry:reg(NodeId, Host, Port, <<"http">>),
    %% use fully qualified table name here, ie. doc."0x23d"
    Path = case ETrace of false -> ?PATH; true -> <<?PATH/binary, ?ACTIVE_ERROR_TRACE/binary>> end,
+   Headers = ?HEADERS ++ http_lib:basic_auth_header(User, Pass),
 
    DBFields =
    case DBFields0 of
@@ -123,6 +127,7 @@ init(NodeId, Inputs,
       failed_retries = MaxRetries,
       remaining_fields_as = RemFieldsAs,
       tls = Tls, path = Path,
+      headers = Headers,
       table = quote_identifier(Table),
       db_fields = DBFields,
       faxe_fields = FaxeFields,
@@ -236,22 +241,19 @@ get_query_point(#data_batch{points = Points}, ListIndex) ->
    lists:nth(ListIndex, Points).
 
 %%% DATA OUT
-send(Item, State = #state{query = Q, faxe_fields = Fields, remaining_fields_as = RemFieldsAs,
-      user = User, pass = Pass}) ->
+send(Item, State = #state{query = Q, faxe_fields = Fields, remaining_fields_as = RemFieldsAs}) ->
    Query = build(Item, Q, Fields, RemFieldsAs),
-   Headers = [{<<"content-type">>, <<"application/json">>}] ++ http_lib:basic_auth_header(User, Pass),
-   NewState = do_send(Item, Query, Headers, 0, State#state{last_error = undefined}),
+   NewState = do_send(Item, Query, 0, State#state{last_error = undefined}),
    MBytes = faxe_util:bytes(Query),
    node_metrics:metric(?METRIC_BYTES_SENT, MBytes, State#state.fn_id),
    node_metrics:metric(?METRIC_ITEMS_OUT, 1, State#state.fn_id),
    NewState.
 
 resend_single(Item, State = #state{query = Q, faxe_fields = Fields, remaining_fields_as = RemFieldsAs,
-   user = User, pass = Pass, query_point = QueryItem}) ->
+   query_point = QueryItem}) ->
    Query = build(QueryItem, Q, Fields, RemFieldsAs),
    lager:notice("retry single item ~p",[QueryItem]),
-   Headers = [{<<"content-type">>, <<"application/json">>}] ++ http_lib:basic_auth_header(User, Pass),
-   do_send(Item, Query, Headers, State#state.failed_retries-1, State#state{last_error = undefined}).
+   do_send(Item, Query, State#state.failed_retries-1, State#state{last_error = undefined}).
 
 
 %% bind values to the statement
@@ -265,11 +267,11 @@ build(Item, Query, Fields, RemFieldsAs) ->
       end,
    jiffy:encode(#{?KEY => Query, ?ARGS => BulkArgs}).
 
-do_send(Item, _Body, _Headers, MaxFailedRetries, S = #state{failed_retries = MaxFailedRetries, last_error = Err}) ->
+do_send(Item, _Body, MaxFailedRetries, S = #state{failed_retries = MaxFailedRetries, last_error = Err}) ->
    lager:warning("could not send ~p with ~p retries, last error: ~p", [_Body, MaxFailedRetries, Err]),
    dataflow:ack(Item, S#state.flow_inputs),
    S#state{last_error = undefined};
-do_send(Item, Body, Headers, Retries, State = #state{client = Client, fn_id = FNId, path = Path}) ->
+do_send(Item, Body, Retries, State = #state{client = Client, fn_id = FNId, path = Path, headers = Headers}) ->
    Ref = gun:post(Client, Path, Headers, Body),
    case catch(get_response(Client, Ref, State#state.ignore_resp_timeout)) of
       ok ->
@@ -286,7 +288,7 @@ do_send(Item, Body, Headers, Retries, State = #state{client = Client, fn_id = FN
          resend_single(Item, State#state{query_point = QueryPoint});
       {error, What} ->
 %%         lager:warning("could not send ~p: error in request: ~p", [Body, What]),
-         do_send(Item, Body, Headers, Retries+1, State#state{last_error = What});
+         do_send(Item, Body, Retries+1, State#state{last_error = What});
       {failed, Why} when State#state.use_flow_ack == true ->
          %% if the server fails in some way, we just try endlessly with a small nap in between,
          %% since this could go on forever, we have to make sure at least to get stop signals
@@ -298,12 +300,12 @@ do_send(Item, Body, Headers, Retries, State = #state{client = Client, fn_id = FN
                erlang:send_after(0, self(), stop),
                lager:info("got stop message while in retry loop")
          after 300 ->
-            do_send(Item, Body, Headers, Retries, State#state{last_error = Why})
+            do_send(Item, Body, Retries, State#state{last_error = Why})
          end;
       %% also {failed, Reason}
       O ->
          lager:warning("sending gun post: ~p",[O]),
-         do_send(Item, Body, Headers, Retries+1, State#state{last_error = O})
+         do_send(Item, Body, Retries+1, State#state{last_error = O})
    end.
 
 
