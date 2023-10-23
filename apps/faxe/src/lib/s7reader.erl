@@ -12,6 +12,7 @@
 -export([start_link/1, register/3, get_stats/1, add_read_stats/2]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
   code_change/3]).
+-export([decode_dt/1]).
 
 -define(SERVER, ?MODULE).
 -define(EMPTY_RETRY_INTERVAL, 300).
@@ -370,6 +371,7 @@ get_requests(IntervalList, S = #state{current_addresses = Slots}) ->
 
 build_requests(IntervalList, Addresses, S=#state{pdu_size = PDUSize, request_cache = Cache}) ->
   {_T, {NumReadReq, BuiltRequests}} = timer:tc(s7_utils, build_addresses, [Addresses, PDUSize]),
+%%  lager:notice("BuiltRequests: ~p",[BuiltRequests]),
   add_tag_stats(S#state.s7_ip, #{num_tags => length(Addresses), num_read_tags => NumReadReq}),
   {BuiltRequests, S#state{request_cache = Cache#{IntervalList => BuiltRequests}, cache_pdu_size = PDUSize}}.
 
@@ -552,24 +554,38 @@ decode(float, Data) ->
 decode(ltime, Data) ->
   [Res || <<Res:64/unsigned>> <= Data];
 decode(dt, Data) ->
-  Dts = [Res || <<Res:64/unsigned>> <= Data],
-  [decode_dt(D) || D <- Dts];
+  lager:warning("dt data ~p",[Data]),
+  [decode_dt(D) || <<D:8/binary>> <= Data];
 decode(dtl, Data) ->
-  Dtl = [Res || <<Res:96/unsigned>> <= Data],
-  [decode_dtl(D) || D <- Dtl];
+  [decode_dtl(Year, Month, Day, Hour, Minute, Second, NanoSec)
+    || <<Year:16/unsigned, Month:8, Day:8, _DayOfWeek:8, Hour:8, Minute:8, Second:8, NanoSec:32>> <= Data];
 decode(_, Data) -> Data.
 
-decode_dt(<<DaysSince:32, MilliSince:32>>) ->
-  % first 4 bytes: days since 1.1.1992
-  % second 4 bytes: milliseconds since 00:00:00.000
-  DateStart = qdate:to_date({{1992,1,1}, {0,0,0}}),
-  Date = qdate:add_days(DateStart, DaysSince),
-  Timestamp0 = qdate:to_unixtime(Date) * 1000,
-  Timestamp0 + MilliSince.
+decode_dt(
+    <<Y0:1/binary, Month:1/binary, Day:1/binary, Hour:1/binary, Min:1/binary, Sec:1/binary, Milli:12/bits, _WDay:4>>) ->
+
+  Y = bcd_decode(Y0),
+  Year = case Y < 90 of true -> 2000+Y; _ -> 1990+Y end,
+  DT =
+    {{Year, bcd_decode(Month), bcd_decode(Day)},
+      {{bcd_decode(Hour), bcd_decode(Min), bcd_decode(Sec)}, list_to_integer(bcd:decode(Milli))}
+    },
+  faxe_time:to_ms(DT).
+
+bcd_decode(B) ->
+  list_to_integer(bcd:decode(B, 1)).
+
+%%decode_dt(DaysSince, MilliSince) ->
+%%  % first 4 bytes: days since 1.1.1992 or is it 1990 ?
+%%  % second 4 bytes: milliseconds since 00:00:00.000
+%%%%  DateStart = qdate:to_date({{1992,1,1}, {0,0,0}}),
+%%  DateStart = qdate:to_date({{1990,1,1}, {0,0,0}}),
+%%  Date = qdate:add_days(DaysSince, DateStart),
+%%  Timestamp0 = qdate:to_unixtime(Date) * 1000,
+%%  Timestamp0 + MilliSince.
 
 
-
-decode_dtl(<<Year:16/unsigned, Month:8, Day:8, _DayOfWeek:8, Hour:8, Minute:8, Second:8, NanoSec:32>>) ->
+decode_dtl(Year, Month, Day, Hour, Minute, Second, NanoSec) ->
   faxe_time:to_ms({{Year, Month, Day}, {{Hour, Minute, Second}, round(NanoSec/1000000)}}).
 
 
