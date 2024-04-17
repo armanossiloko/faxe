@@ -311,6 +311,7 @@ do_send(_Item, _Body, MaxFailedRetries, S = #state{failed_retries = MaxFailedRet
    done_sending(S);
 do_send(Item, Body, Retries, State = #state{client = Client, path = Path, headers = Headers}) ->
    Ref = gun:post(Client, Path, Headers, Body),
+   maybe_debug(Body, State),
    case catch(get_response(Client, Ref, State#state.ignore_resp_timeout)) of
       ok ->
          done_sending(State);
@@ -347,6 +348,11 @@ maybe_continue(State = #state{buffer = []}) ->
 maybe_continue(State = #state{}) ->
    erlang:send_after(0, self(), continue),
    State#state{busy = true}.
+
+maybe_debug(_Contents, #state{debug_mode = false}) ->
+   ok;
+maybe_debug(Contents, #state{}) ->
+   lager:notice("Crate query: ~p", [Contents]).
 
 %% bind values to the statement
 -spec build(#data_point{}|#data_batch{}, binary(), list(), binary(), #state{}) -> {integer(), list, iodata()|undefined}.

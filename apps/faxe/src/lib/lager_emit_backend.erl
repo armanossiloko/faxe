@@ -40,7 +40,7 @@ init(Args) ->
    case faxe_event_handlers:get_enabled(debug, handler) of
       [] -> #state{level = Level}; %% not enabled;
       [{mqtt, HandlerOpts}] ->
-%%         lager:info("mqtt-opts: ~p",[HandlerOpts]),
+         lager:notice("init ~p",[?MODULE]),
          MqttOpts0 = faxe_event_handlers:mqtt_opts(HandlerOpts),
 %%         lager:info("options: ~p",[MqttOpts0]),
          Name = faxe_util:device_name(),
