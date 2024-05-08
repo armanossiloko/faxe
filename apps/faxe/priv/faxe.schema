@@ -314,17 +314,6 @@
 }.
 
 %% @doc -------------------------------------------------------------------------
-%% NODE SPECIFIC settings
-%%-------------------------------------------------------------------------
-%%
-
-%%
-%% @doc extended logging for node crate_query_cont
-{mapping, "node.crate_query_cont.extended_log", "faxe.node.crate_query_cont.extended_log",
-    [{default, off}, {datatype, flag}]
-}.
-
-%% @doc -------------------------------------------------------------------------
 %% S7 DEFAULTS
 %%-------------------------------------------------------------------------
 %%

@@ -554,7 +554,7 @@ decode(float, Data) ->
 decode(ltime, Data) ->
   [Res || <<Res:64/unsigned>> <= Data];
 decode(dt, Data) ->
-  lager:info("dt data ~p",[Data]),
+  lager:warning("dt data ~p",[Data]),
   [decode_dt(D) || <<D:8/binary>> <= Data];
 decode(dtl, Data) ->
   [decode_dtl(Year, Month, Day, Hour, Minute, Second, NanoSec)
