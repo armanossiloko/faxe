@@ -5,7 +5,6 @@ BUILD_DIR = _build/dev1/rel/faxe/
 
 dev1:
 	export QUIET=1 && \
-	export FAXE_DFS_DEBUG=on && \
 	export FAXE_EXTENSIONS=$(CURRENT_DIR)/extensions.config && \
 	export FAXE_DFS_SCRIPT_PATH=$(CURRENT_DIR)/dfs/ && \
 	export FAXE_PYTHON_SCRIPT_PATH=$(CURRENT_DIR)/python/ && \
@@ -15,19 +14,14 @@ dev1:
 	export FAXE_DEQUEUE_INTERVAL=3ms && \
 	export FAXE_DEQUEUE_MIN_INTERVAL=1ms && \
 	export FAXE_DEQUEUE_MAX_INTERVAL=600ms && \
-	export FAXE_CRATE_HTTP_TLS_ENABLE=on && \
-	export FAXE_CRATE_HOST='crate.datahub-dev.tgw-group.cloud' && \
-	export FAXE_CRATE_HTTP_USER=miae && \
-    export FAXE_CRATE_HTTP_PASS='l;DAa@-kn|7kAJ}U{Y<@9zu7y' && \
-	export FAXE_CRATE_HTTP_HOST='crate.datahub-dev.tgw-group.cloud' && \
-    export FAXE_CRATE_USER=miae && \
-    export FAXE_CRATE_PASS='l;DAa@-kn|7kAJ}U{Y<@9zu7y' && \
-    export FAXE_CRATE_TLS_ENABLE=on && \
-	export FAXE_MQTT_HOST='mqtt.datahub-dev.tgw-group.cloud' && \
-	export FAXE_MQTT_PORT=8883 && \
-	export FAXE_MQTT_USER='cwa-m62Vn8sszdsgU4PeKxXJ' && \
-	export FAXE_MQTT_PASS='#y3MFK!wt5xu5jn!DHDT' && \
-	export FAXE_MQTT_SSL_ENABLE='on' && \
+	export FAXE_CRATE_HTTP_TLS_ENABLE=off && \
+	export FAXE_CRATE_HOST=localhost && \
+	export FAXE_CRATE_PORT=5432 && \
+	export FAXE_CRATE_HTTP_HOST=localhost && \
+  export FAXE_CRATE_USER=faxe && \
+  export FAXE_CRATE_PASS=faxe_pass && \
+	export FAXE_MQTT_HOST='localhost' && \
+	export FAXE_MQTT_SSL_ENABLE='off' && \
 	export FAXE_MQTT_PUB_POOL_WORKER_MAX_RATE=15 && \
 	export FAXE_MQTT_PUB_POOL_MIN_SIZE=2 && \
 	export FAXE_MQTT_PUB_POOL_MAX_SIZE=12 && \
@@ -52,9 +46,8 @@ dev1:
 	export FAXE_DEBUG_HANDLER_MQTT_ENABLE=on && \
 	export FAXE_METRICS_HANDLER_MQTT_ENABLE=on && \
 	export FAXE_FLOW_CHANGED_HANDLER_MQTT_ENABLE=off && \
-	export FAXE_DEBUG_HANDLER_MQTT_BASE_TOPIC=tgw/sys/local/faxe/ && \
-	export FAXE_CONN_STATUS_HANDLER_MQTT_BASE_TOPIC=tgw/sys/local/faxe/ && \
-	export FAXE_FLOW_HEALTH_HANDLER_MQTT_BASE_TOPIC=tgw/sys/local/faxe/ && \
+	export FAXE_DEBUG_HANDLER_MQTT_ENABLE=on && \
+	export FAXE_DEBUG_HANDLER_MQTT_BASE_TOPIC=sys/faxe/ && \
 	export FAXE_HOST=heyoka_local && \
 	export FAXE_S7POOL_ENABLE=on && \
 	export FAXE_S7READER_OPTIMIZED=on && \
@@ -63,7 +56,6 @@ dev1:
 #	export FAXE_FLOW_HEALTH_HANDLER_MQTT_HOST=mqtt.example.com && \
 	export FAXE_FLOW_HEALTH_OBSERVER_ENABLE=on && \
 	export FAXE_FLOW_HEALTH_OBSERVER_REPORT_INTERVAL=10s && \
-	export FAXE_NODE_CRATE_QUERY_CONT_EXTENDED_LOG=on && \
 	git config --global url."https://".insteadOf git:// && \
 	rebar3 as dev1 release && $(BUILD_DIR)/bin/faxe console
 
