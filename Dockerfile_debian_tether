@@ -78,7 +78,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc g++ make \
 	&& echo "-------------->start to install tether stuff<--------------" \
     && git config --global http.sslverify false \
 	&& echo "token: "$SYSTEM_ACCESSTOKEN \
-    && python -m pip install git+https://$SYSTEM_ACCESSTOKEN@dev.azure.com/HOLD-CWA/ConnectedWarehouse-Customers/_git/Tether \
+    && python -m pip install git+https://$SYSTEM_ACCESSTOKEN@dev.azure.com/HOLD-CWA/ConnectedWarehouse-Customers/_git/Tether@main \
     && echo "-------------->end of tether stuff<--------------" \
     && apt-get purge -y --auto-remove gcc g++ make \
     && rm -rf /var/lib/apt/lists/*
