@@ -67,6 +67,7 @@ CMD ["erl"]
 ### python requirements
 COPY python_requirements.txt ./
 RUN apt-get update && apt-get install -y --no-install-recommends gcc g++ make \
+	&& python -m pip install --upgrade pip \
     && pip install --no-cache-dir -r python_requirements.txt \
     && apt-get purge -y --auto-remove gcc g++ make \
     && rm -rf /var/lib/apt/lists/*
