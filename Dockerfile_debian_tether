@@ -74,7 +74,7 @@ CMD ["erl"]
 COPY python_requirements_prod.txt ./
 
 RUN apt-get update && apt-get install -y --no-install-recommends gcc g++ make \
-    && pip install ––upgrade pip \
+    && python -m pip install --upgrade pip \
 	&& pip install --no-cache-dir -r python_requirements_prod.txt \
 	&& echo "-------------->start to install tether stuff<--------------" \
     && git config --global http.sslverify false \
