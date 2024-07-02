@@ -11,8 +11,8 @@ requests
 ujson
 opencv-python-headless
 azure-storage-blob
-matplotlib ^3.9
-plotly ^5.22
+matplotlib >=3.9
+plotly >=5.22
 #
 ###### Requirements with Version Specifiers ######
 #   See https://www.python.org/dev/peps/pep-0440/#version-specifiers
