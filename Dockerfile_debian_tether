@@ -1,5 +1,5 @@
 ### Build stage 0
-FROM registry.datahub.tgw-group.cloud/docker-hub-proxy/python:3.9.1 as debian
+FROM registry.datahub.tgw-group.cloud/docker-hub-proxy/python:3.9.19 as debian
 
 ### erlang and rebar3
 ENV OTP_VERSION="25.3.2.2" \
@@ -23,7 +23,6 @@ RUN set -xe \
 	&& echo "$OTP_DOWNLOAD_SHA256  otp-src.tar.gz" | sha256sum -c - \
 	&& runtimeDeps=' \
 		libodbc1 \
-		libssl1.1 \
 		libsctp1 \
 	' \
 	&& buildDeps=' \
@@ -34,7 +33,6 @@ RUN set -xe \
 		make \
 		libncurses-dev \
 		unixodbc-dev \
-		libssl-dev \
 		libsctp-dev \
 	' \
 	&& apt-get install -y --no-install-recommends $runtimeDeps \
@@ -74,11 +72,12 @@ CMD ["erl"]
 COPY python_requirements_prod.txt ./
 
 RUN apt-get update && apt-get install -y --no-install-recommends gcc g++ make \
-    && pip install --no-cache-dir -r python_requirements_prod.txt \
+    && python -m pip install --upgrade pip \
+	&& pip install --no-cache-dir -r python_requirements_prod.txt \
 	&& echo "-------------->start to install tether stuff<--------------" \
     && git config --global http.sslverify false \
 	&& echo "token: "$SYSTEM_ACCESSTOKEN \
-    && python -m pip install git+https://$SYSTEM_ACCESSTOKEN@dev.azure.com/HOLD-CWA/ConnectedWarehouse-Customers/_git/Tether \
+    && python -m pip install git+https://$SYSTEM_ACCESSTOKEN@dev.azure.com/HOLD-CWA/ConnectedWarehouse-Customers/_git/Tether@main \
     && echo "-------------->end of tether stuff<--------------" \
     && apt-get purge -y --auto-remove gcc g++ make \
     && rm -rf /var/lib/apt/lists/*

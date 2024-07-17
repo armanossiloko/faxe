@@ -1,5 +1,5 @@
 ### Build stage 0
-FROM python:3.9.1 as debian
+FROM registry.datahub.tgw-group.cloud/docker-hub-proxy/python:3.9.19 as debian
 
 ### erlang and rebar3
 ENV OTP_VERSION="25.3.2.2" \
@@ -20,7 +20,6 @@ RUN set -xe \
 	&& echo "$OTP_DOWNLOAD_SHA256  otp-src.tar.gz" | sha256sum -c - \
 	&& runtimeDeps=' \
 		libodbc1 \
-		libssl1.1 \
 		libsctp1 \
 	' \
 	&& buildDeps=' \
@@ -31,7 +30,6 @@ RUN set -xe \
 		make \
 		libncurses-dev \
 		unixodbc-dev \
-		libssl-dev \
 		libsctp-dev \
 	' \
 	&& apt-get install -y --no-install-recommends $runtimeDeps \
@@ -69,6 +67,7 @@ CMD ["erl"]
 ### python requirements
 COPY python_requirements_prod.txt ./
 RUN apt-get update && apt-get install -y --no-install-recommends gcc g++ make \
+	&& python -m pip install --upgrade pip \
     && pip install --no-cache-dir -r python_requirements_prod.txt \
     && apt-get purge -y --auto-remove gcc g++ make \
     && rm -rf /var/lib/apt/lists/*
