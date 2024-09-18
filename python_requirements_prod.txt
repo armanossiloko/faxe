@@ -11,6 +11,9 @@ requests
 ujson
 opencv-python-headless
 azure-storage-blob
+datetime
+typing
+dataclasses
 #matplotlib >=3.9
 #plotly >=5.22
 #
