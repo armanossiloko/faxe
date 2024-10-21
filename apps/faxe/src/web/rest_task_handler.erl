@@ -8,7 +8,7 @@
 %%%-------------------------------------------------------------------
 -module(rest_task_handler).
 
--define(BODY_LENGTH_TIMEOUT, #{length => 1000000, period => 10000}).
+-define(BODY_LENGTH_TIMEOUT, #{length => 3500000, period => 12000}).
 
 %%
 %% Cowboy callbacks
