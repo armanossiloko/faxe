@@ -1,8 +1,5 @@
 %% Date: 30.12.16 - 23:01
 %% CrateDB Writer that uses crate's http endpoint
-%% @todo 2 issues to be resolved:
-%% 1. duplicate items
-%% 2. when resend_single, do not attempt to retry (in case of {failed, _})
 %% Ⓒ 2019 heyoka
 %%
 -module(esp_crate_out).
@@ -74,7 +71,7 @@
 
 -define(CONNECT_OPTS, #{connect_timeout => faxe_config:get_sub(crate_http, connection_timeout)}).
 
--define(DEDUP_QUEUE_SIZE, 250).
+-define(DEDUP_QUEUE_SIZE, 350).
 
 options() ->
    [
@@ -162,7 +159,7 @@ init(NodeId, Inputs,
       pg_user = PgUser,
       pg_pass = PgPass,
       pg_tls = PgTls
-      },
+   },
 
    {ok, all,State}.
 
@@ -303,7 +300,6 @@ resend_single(Item, State = #state{query = Q, faxe_fields = Fields, remaining_fi
 
 %% empty query
 do_send(_Item, undefined, _MaxFailedRetries, State) ->
-   lager:notice("no query to send, skip ..."),
    done_sending(State);
 %% reached max retries
 do_send(_Item, _Body, MaxFailedRetries, S = #state{failed_retries = MaxFailedRetries, last_error = Err}) ->
@@ -333,6 +329,7 @@ do_send(Item, Body, Retries, State = #state{client = Client, path = Path, header
 
 
 done_sending(State = #state{pending_data = #{last_dtag := DTag, item_hashes := HList}, dedup_queue = Queue}) ->
+%%   lager:info("~p ack multi : ~p",[?MODULE, DTag]),
    dataflow:ack(multi, DTag, State#state.flow_inputs),
    NewDedupQ = memory_queue:enq(HList, Queue),
    NewState = State#state{
@@ -357,7 +354,7 @@ maybe_debug(Contents, #state{}) ->
 %% bind values to the statement
 -spec build(#data_point{}|#data_batch{}, binary(), list(), binary(), #state{}) -> {integer(), list, iodata()|undefined}.
 build(Item, Query, Fields, RemFieldsAs, #state{dedup_queue = Queue}) ->
-   {DTag, PHashes, BulkArgs0}=Res = build_value_stmt(Item, Fields, RemFieldsAs, Queue),
+   {DTag, PHashes, BulkArgs0} = _Res = build_value_stmt(Item, Fields, RemFieldsAs, Queue),
 %%   lager:notice("got build result ~p",[Res]),
    JsonQuery =
    case BulkArgs0 of
@@ -390,10 +387,9 @@ build_batch([], _FieldList, _RemFieldsAs, _DedupQ, {DTag, PHashes, AccArgs}) ->
 build_batch([Point=#data_point{dtag = PointDTag}|Points], FieldList, RemFieldsAs, DedupQ, {_, PHashes, AccArgs}) ->
    PHash = erlang:phash2(Point#data_point{dtag = undefined}),
    NewAcc =
-   case memory_queue:member(PHash, DedupQ) of
+   case lists:member(PHash, PHashes) orelse memory_queue:member(PHash, DedupQ) of
       true ->
-         %% duplicate !!!
-         lager:notice("duplicate item found, will drop it - ~p",[Point]),
+         lager:warning("duplicate item found, will drop it - ~p",[Point]),
          {PointDTag, PHashes, AccArgs};
       false ->
          {PointDTag, [PHash|PHashes], [build_value_stmt2(Point, FieldList, RemFieldsAs) | AccArgs]}
@@ -468,15 +464,6 @@ get_response(Client, Ref, Ignore) ->
    end.
 
 -spec handle_response(integer(), binary()) -> ok|{error, invalid}|{failed, term()}.
-%%handle_response(_, _) ->
-%%%%   Err = <<"{\"error\":{\"message\":\"MaxBytesLengthExceededException[bytes can be at most 32766 in length; got 32910]\",\"code\":5000}}">>,
-%%   Err = <<"{\"error\":{\"message\":\"wasistdas\",\"code\":5002}}">>,
-%%   lager:error("Error ~p with body ~p",[500, Err]),
-%%   case catch jiffy:decode(Err, [return_maps]) of
-%%      #{<<"error">> := #{<<"code">> := Code, <<"message">> := ErrMsg}} ->
-%%         crate_ignore_rules:check_ignore_error(Code, ErrMsg);
-%%      _ -> {failed, server_error}
-%%   end;
 handle_response(<<"200">>, BodyJSON) ->
    handle_response_message(BodyJSON);
 handle_response(<<"4", _/binary>> = S,_BodyJSON) ->
