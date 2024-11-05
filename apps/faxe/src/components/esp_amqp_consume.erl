@@ -26,8 +26,6 @@
    check_options/0,
    handle_ack/3]).
 
--define(RECONNECT_TIMEOUT, 2000).
-
 %% state for direct publish mode
 -record(state, {
    consumer,
@@ -62,6 +60,7 @@
    safe_mode = false,
    confirm = true,
    dedup_queue :: memory_queue:memory_queue(),
+   %% know which channel gave us the DTAGs so far
    last_chan = undefined
 }).
 
@@ -93,7 +92,7 @@ options() -> [
    {topic_as, string, <<"topic">>},
    {as, string, undefined},
    {confirm, boolean, true},
-   {dedup_size, integer, 100}
+   {dedup_size, integer, 350}
 ].
 
 check_options() ->
@@ -109,12 +108,11 @@ metrics() ->
 init({GraphId, NodeId} = Idx, _Ins,
    #{ host := Host0, port := Port, user := _User, pass := _Pass, vhost := _VHost, queue := Q0,
       exchange := Ex0, qx_name := _QxName, prefetch := Prefetch, routing_key := RoutingKey0, bindings := Bindings0,
-      dt_field := DTField, dt_format := DTFormat, ssl := _UseSSL, include_topic := IncludeTopic,
+      dt_field := DTField, dt_format := DTFormat, ssl := UseSSL, include_topic := IncludeTopic,
       topic_as := TopicKey, ack_every := AckEvery0, ack_after := AckTimeout0, as := As, consumer_tag := CTag0,
       queue_prefix := QPrefix, root_exchange := RExchange, exchange_prefix := XPrefix
       , use_flow_ack := FlowAck, clean_field_names := Clean,
-   safe := Safe, confirm := Confirm,
-   dedup_size := DedupSize
+   safe := Safe, confirm := Confirm, dedup_size := DedupSize
    } = Opts0) ->
 
    Q = eval_name(Q0, Opts0, Idx),
@@ -137,7 +135,7 @@ init({GraphId, NodeId} = Idx, _Ins,
       include_topic = IncludeTopic, topic_key = TopicKey, as = As, dedup_queue = memory_queue:new(DedupSize),
       opts = Opts, prefetch = Prefetch, ack_every = AckEvery0, ack_after = AckTimeout, flow_ack = FlowAck,
       dt_field = DTField, dt_format = DTFormat, safe_mode = Safe, flownodeid = Idx, confirm = Confirm,
-      clean_names = Clean},
+      clean_names = Clean, ssl = UseSSL},
 
    NewState = maybe_init_q(State),
 
@@ -158,8 +156,14 @@ process(_In, _, State = #state{}) ->
 %%
 %% new queue-message arrives ...
 %%
-handle_info({ {DTag, RKey}, {Payload, CorrelationId, _Headers}, Channel},
-    State=#state{flownodeid = FNId, dedup_queue = Dedup}) ->
+%%handle_info({deliver, _QueueName, _Channel, _TagTuple, _PayloadData} = Data,
+%%    State=#state{parent_pid = Parent}) when is_pid(Parent) ->
+%%   %% send data to parent
+%%   Parent ! Data,
+%%   {ok, State};
+handle_info({deliver, _QueueName, Channel, {DTag, RKey}, {Payload, CorrelationId, _Headers}},
+    State=#state{flownodeid = FNId, dedup_queue = Dedup, last_chan = _OldChannel}) ->
+
    node_metrics:metric(?METRIC_BYTES_READ, byte_size(Payload), FNId),
    node_metrics:metric(?METRIC_ITEMS_IN, 1, FNId),
 
@@ -170,20 +174,27 @@ handle_info({ {DTag, RKey}, {Payload, CorrelationId, _Headers}, Channel},
          memory_queue:member(CorrelationId, Dedup)
    of
       true ->
-%%         lager:info("duplicate message found! [~p]",[CorrelationId]),
-%%         case State#state.flow_ack of
-%%            true -> carrot:ack_multiple(DTag)
-%%         end,
+         lager:info("duplicate message found! [~p]",[CorrelationId]),
          {ok, maybe_ack(DTag, NewState)};
       false ->
          %% store correlation_id
-         NewDedup = memory_queue:enq(CorrelationId, Dedup),
+         NewDedup =
+         case State#state.flow_ack of
+            true -> Dedup;
+            false -> memory_queue:enq(CorrelationId, Dedup)
+         end,
          Item0 = build_item(Payload, RKey, NewState),
          Item = flowdata:set_dtag(Item0, DTag),
          dataflow:maybe_debug(item_in, 1, Item, FNId, NewState#state.debug_mode),
          enq_or_emit(Item, DTag, NewState#state{dedup_queue = NewDedup})
    end;
 
+handle_info({amqp_connected, Consumer}, #state{consumer = Consumer} = State) ->
+   connection_registry:connected(),
+   {ok, State};
+handle_info({amqp_disconnected, Consumer}, #state{consumer = Consumer} = State) ->
+   connection_registry:disconnected(),
+   {ok, State};
 handle_info({'DOWN', _MonitorRef, process, Consumer, _Info}, #state{consumer = Consumer} = State) ->
    connection_registry:disconnected(),
    lager:notice("MQ-Consumer ~p is 'DOWN'",[Consumer]),
@@ -207,16 +218,12 @@ handle_info(_R, State) ->
 handle_ack(_, _, State=#state{flow_ack = false}) ->
    {ok, State};
 handle_ack(Mode, DTag, State=#state{consumer = Consumer}) ->
-%%   lager:info("got ack ~p for Tag: ~p",[Mode, DTag]),
    Func = case Mode of single -> ack; multi -> ack_multiple end,
    carrot:Func(Consumer, DTag),
    {ok, State}.
 
 shutdown(#state{consumer = C, last_dtag = _DTag, emitter = Emitter}) ->
-%%   case DTag of
-%%      undefined -> ok;
-%%      _ -> carrot:ack_multiple(C, DTag)
-%%   end,
+   connection_registry:disconnected(),
    catch gen_server:stop(C),
    catch (gen_server:stop(Emitter)).
 
@@ -271,7 +278,6 @@ start_consumer(State = #state{opts = ConsumerOpts}) ->
    connection_registry:connecting(),
    {ok, Pid, _NewConsumer} =
       rmq_consumer:start_monitor(self(), consumer_config(ConsumerOpts)),
-   connection_registry:connected(),
    State#state{consumer = Pid}.
 
 start_emitter(State = #state{queue = Q}) ->

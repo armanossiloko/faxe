@@ -554,26 +554,41 @@ decode(float, Data) ->
 decode(ltime, Data) ->
   [Res || <<Res:64/unsigned>> <= Data];
 decode(dt, Data) ->
-  lager:warning("dt data ~p",[Data]),
+  lager:info("dt data ~p",[Data]),
   [decode_dt(D) || <<D:8/binary>> <= Data];
 decode(dtl, Data) ->
   [decode_dtl(Year, Month, Day, Hour, Minute, Second, NanoSec)
     || <<Year:16/unsigned, Month:8, Day:8, _DayOfWeek:8, Hour:8, Minute:8, Second:8, NanoSec:32>> <= Data];
 decode(_, Data) -> Data.
 
-decode_dt(
+decode_dt(BinData) ->
+  case catch do_decode_dt(BinData) of
+    Ts when is_integer(Ts) -> Ts;
+    Other -> lager:error("Error when decoding DT: ~p", [Other]), <<"error">>
+  end.
+
+%%do_decode_dt(
+%%    <<Y0:8/bits, Month:8/bits, Day:8/bits, Hour:8/bits, Min:8/bits, Sec:8/bits, Rest/binary>>) ->
+%%
+%%  Y = bcd:decode(Y0, 1),
+%%  Year = case Y < 90 of true -> 2000+Y; _ -> 1990+Y end,
+%%  DT =
+%%    {{Year, bcd:decode(Month, 1), bcd:decode(Day, 1)},
+%%      {{bcd:decode(Hour, 1), bcd:decode(Min, 1), bcd:decode(Sec, 1)}, 0}
+%%    },
+%%  lager:notice("DT_test: ~p", [DT]),
+%%  faxe_time:to_ms(DT).
+
+do_decode_dt(
     <<Y0:1/binary, Month:1/binary, Day:1/binary, Hour:1/binary, Min:1/binary, Sec:1/binary, Milli:12/bits, _WDay:4>>) ->
 
-  Y = bcd_decode(Y0),
+  Y = bcd:decode(Y0, 1),
   Year = case Y < 90 of true -> 2000+Y; _ -> 1990+Y end,
   DT =
-    {{Year, bcd_decode(Month), bcd_decode(Day)},
-      {{bcd_decode(Hour), bcd_decode(Min), bcd_decode(Sec)}, list_to_integer(bcd:decode(Milli))}
+    {{Year, bcd:decode(Month, 1), bcd:decode(Day, 1)},
+      {{bcd:decode(Hour, 1), bcd:decode(Min, 1), bcd:decode(Sec, 1)}, bcd:decode2(Milli)}
     },
   faxe_time:to_ms(DT).
-
-bcd_decode(B) ->
-  list_to_integer(bcd:decode(B, 1)).
 
 %%decode_dt(DaysSince, MilliSince) ->
 %%  % first 4 bytes: days since 1.1.1992 or is it 1990 ?

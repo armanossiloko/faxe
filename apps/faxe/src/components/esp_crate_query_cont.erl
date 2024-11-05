@@ -41,7 +41,8 @@
    fn_id,
    debug_mode = false,
    response_def :: faxe_epgsql_response(),
-   setup_done = false :: true|false %% whether setup is done already
+   setup_done = false :: true|false, %% whether setup is done already
+   extended_log = false :: true|false
 }).
 
 -define(DB_OPTIONS, #{
@@ -68,6 +69,7 @@ options() ->
       {host, string, {crate, host}},
       {port, integer, {crate, port}},
       {ssl, boolean, {crate, tls, enable}},
+      {tls, boolean, {crate, tls, enable}},
       {user, string, {crate, user}},
       {pass, string, {crate, pass}},
       {database, string, {crate, database}},
@@ -85,7 +87,8 @@ options() ->
       {start_delay, duration, undefined},
       {stop, string, undefined},
       {stop_flow, boolean, true},
-      {result_type, string, <<"batch">>}
+      {result_type, string, <<"batch">>},
+      {extended_log, boolean, {node, crate_query_cont, extended_log}}
    ].
 
 check_options() ->
@@ -170,7 +173,7 @@ metrics() ->
 
 init(NodeId, _Inputs, Opts = #{
    host := Host0, port := Port, user := User, pass := Pass, ssl := Ssl, database := DB, start_delay := Delay,
-   setup_query := SetupQuery, setup_vars := SetupVars, setup_ts := SetupTs0,
+   setup_query := SetupQuery, setup_vars := SetupVars, setup_ts := SetupTs0, extended_log := ExtendedLog,
    result_time_field := ResTimeField0, result_type := RType, filter_time_field := FilterTime, stop_flow := StopFlow}) ->
 
    process_flag(trap_exit, true),
@@ -189,6 +192,7 @@ init(NodeId, _Inputs, Opts = #{
    %% init after maybe startdelay
    erlang:send_after(StartDelay, self(), {init2, Opts}),
    NewState = #state{
+      extended_log = ExtendedLog,
       host = Host, port = Port, user = User, pass = Pass, database = DB,
       setup_query = SetupQuery, setup_vars = SetupVars, setup_ts = SetupTs,
       db_opts = DBOpts, response_def = Response, fn_id = NodeId, stop_flow = StopFlow},
@@ -409,8 +413,13 @@ do_query(State = #state{query_mark = QMark, stop = Stop, client = C}) when Stop 
 do_query(State = #state{client = C, period = Period, query_mark = QueryMark, fn_id = FnId, stmt = Stmt}) ->
    %% do query
    FromTs = QueryMark-Period,
-%%   lager:notice("from: ~p, to :~p (~p sec)",
-%%      [faxe_time:to_iso8601(QueryMark-Period), faxe_time:to_iso8601(QueryMark), round(Period/1000)]),
+   case State#state.extended_log of
+      true ->
+         lager:notice("$__timefilter :: ts >= '~p' AND ts < '~p' (~p sec)",
+         [faxe_time:to_iso8601(QueryMark-Period), faxe_time:to_iso8601(QueryMark), round(Period/1000)]);
+      false -> ok
+   end,
+
    case catch timer:tc(epgsql, prepared_query, [C, Stmt, [FromTs, QueryMark]]) of
       {TsMy, Resp} when is_integer(TsMy) ->
          node_metrics:metric(?METRIC_READING_TIME, round(TsMy/1000), FnId),
@@ -439,6 +448,11 @@ handle_result(Resp, FromTs, State = #state{period = Period, query_mark = QueryMa
 %%         lager:notice("JB: ~s",[flowdata:to_json(Data)]),
          node_metrics:metric(?METRIC_ITEMS_IN, 1, FnId),
          {emit, {1, Data#data_batch{start = FromTs}}, NewState#state{response_def = NewResponseDef}};
+      {error, sock_closed} ->
+         lager:warning("Error response from Crate: sock_closed", []),
+         %% keep the state with the current query-mark (do not advance), so that on reconnect, we try the current batch again
+         cancel_timer(NewState),
+         {ok, State#state{timer = undefined}}; %% retry
       {error, Error} ->
          lager:warning("Error response from Crate: ~p", [Error]),
          {ok, NewState};
@@ -464,6 +478,8 @@ time_range(TimeField) ->
    << TimeField/binary, " >= $1 AND ", TimeField/binary, " < $2" >>
 .
 
+cancel_timer(State = #state{timer = undefined}) ->
+   State;
 cancel_timer(State = #state{timer = TRef}) ->
-   catch erlang:cancel_timer(TRef),
+   erlang:cancel_timer(TRef),
    State#state{timer = undefined}.

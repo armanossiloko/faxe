@@ -7,7 +7,7 @@
 -include("faxe.hrl").
 
 %% API
--export([start_script/2, do/0, do/1, do/2, compile/1, file/2, data/2, make_lambda_fun/3, get_all_nodes/0]).
+-export([start_script/2, compile/1, file/2, data/2, make_lambda_fun/3, get_all_nodes/0]).
 
 %% for now the only user definable component-type is python(3)
 -define(USER_COMPONENT, c_python3).
@@ -17,13 +17,6 @@
 
 %% define a list of lambda library modules for use in lambda expressions
 -define(LAMBDA_LIBS, [faxe_lambda_lib, mathex]).
-
-do() ->
-   do(<<"graph1">>).
-do(Name) ->
-   start_script("/home/heyoka/workspace/faxe/apps/faxe/src/window.dfs", Name).
-do(File, Name) ->
-   start_script(File, Name).
 
 start_script(Script, Name) ->
    try eval(Script) of
@@ -456,7 +449,8 @@ list_param(tuple_list, Val) ->
 list_param(_Type, Val) ->
    cparam(any, Val).
 
-cparam(is_set, _) -> true;
+cparam(is_set, {bool,false}) -> false;
+cparam(is_set, _W) -> true;
 cparam(atom, {identifier, Val}) -> binary_to_atom(Val);
 cparam(bool, {identifier, Val}) -> binary_to_atom(Val);
 cparam(binary, {string, Val}) -> Val;

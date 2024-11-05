@@ -5,6 +5,9 @@ FROM registry.datahub.tgw-group.cloud/docker-hub-proxy/python:3.9.19 as debian
 ENV OTP_VERSION="25.3.2.2" \
     REBAR3_VERSION="3.22.0"
 
+# system token to fetch tether
+ARG SYSTEM_ACCESSTOKEN
+
 LABEL org.opencontainers.image.version=$OTP_VERSION
 
 RUN set -xe \
@@ -65,10 +68,17 @@ RUN set -xe \
 CMD ["erl"]
 
 ### python requirements
+
 COPY python_requirements_prod.txt ./
+
 RUN apt-get update && apt-get install -y --no-install-recommends gcc g++ make \
-	&& python -m pip install --upgrade pip \
-    && pip install --no-cache-dir -r python_requirements_prod.txt \
+    && python -m pip install --upgrade pip \
+	&& pip install --no-cache-dir -r python_requirements_prod.txt \
+	&& echo "-------------->start to install tether stuff<--------------" \
+    && git config --global http.sslverify false \
+	&& echo "token: "$SYSTEM_ACCESSTOKEN \
+    && python -m pip install git+https://$SYSTEM_ACCESSTOKEN@dev.azure.com/HOLD-CWA/ConnectedWarehouse-Customers/_git/Tether@main \
+    && echo "-------------->end of tether stuff<--------------" \
     && apt-get purge -y --auto-remove gcc g++ make \
     && rm -rf /var/lib/apt/lists/*
 
@@ -95,8 +105,6 @@ ENV FAXE_EXTENSIONS="ext.config"
 
 # install git, build release and cleanup deps
 RUN apt-get update && apt-get install -y --no-install-recommends gcc g++ make git-all \
-    #&& apt --only-upgrade --no-install-recommends install ${update_list} -y  \
-    #&& apt remove  --auto-remove ${remove_list} -y  \
     && apt upgrade -y \
     && apt autoremove -y \
     # tell git to use https instead of git protocol (faxe dependencies)
@@ -118,6 +126,10 @@ RUN groupadd -g 10000 faxe \
 	&& useradd -g 10000 -u 9999 -s /bin/bash -m faxe \
 	&& chown -R 9999 /faxe  \
 	&& chmod -R g=u /faxe
+
+# add tether config to image
+COPY tethercred.key /home/faxe/.cdh/tethercred.key
+COPY tethercred.yml.crypt /home/faxe/.cdh/tethercred.yml.crypt
 
 USER 9999
 

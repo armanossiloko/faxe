@@ -1,8 +1,5 @@
 %% Date: 30.12.16 - 23:01
 %% CrateDB Writer that uses crate's http endpoint
-%% @todo 2 issues to be resolved:
-%% 1. duplicate items
-%% 2. when resend_single, do not attempt to retry (in case of {failed, _})
 %% Ⓒ 2019 heyoka
 %%
 -module(esp_crate_out).
@@ -51,7 +48,14 @@
    use_flow_ack = false :: true|false,
 
    pending_data = #{} :: map(),
-   dedup_queue :: memory_queue:memory_queue()
+   dedup_queue :: memory_queue:memory_queue(),
+   %% settings for the extra pg connection, when needed, see options below
+   pg_port :: pos_integer(),
+   pg_tls :: boolean(),
+   pg_user :: binary(),
+   pg_pass :: binary()
+
+
 }).
 
 -define(KEY, <<"stmt">>).
@@ -67,7 +71,7 @@
 
 -define(CONNECT_OPTS, #{connect_timeout => faxe_config:get_sub(crate_http, connection_timeout)}).
 
--define(DEDUP_QUEUE_SIZE, 250).
+-define(DEDUP_QUEUE_SIZE, 350).
 
 options() ->
    [
@@ -84,7 +88,13 @@ options() ->
       {max_retries, integer, ?FAILED_RETRIES},
       {error_trace, boolean, false},
       {ignore_response_timeout, boolean, true},
-      {use_flow_ack, boolean, {amqp, flow_ack, enable}}
+      {use_flow_ack, boolean, {amqp, flow_ack, enable}},
+      %% connection params for the epgsql client used to fetch schema infos (when db_fields is undefined)
+      %% the params default to the crate postgre protocol config settings
+      {pg_port, integer, {crate, port}},
+      {pg_tls, boolean, {crate, tls, enable}},
+      {pg_user, string, {crate, user}},
+      {pg_pass, string, {crate, pass}}
    ].
 
 check_options() ->
@@ -111,7 +121,8 @@ init(NodeId, Inputs,
     #{host := Host0, port := Port, database := DB, table := Table, user := User, pass := Pass,
        tls := Tls, db_fields := DBFields0, faxe_fields := FaxeFields, error_trace := ETrace,
        remaining_fields_as := RemFieldsAs, max_retries := MaxRetries,
-       ignore_response_timeout := IgnoreRespTimeout, use_flow_ack := FlowAck}) ->
+       ignore_response_timeout := IgnoreRespTimeout, use_flow_ack := FlowAck,
+       pg_port := PgPort, pg_user := PgUser, pg_pass := PgPass, pg_tls := PgTls}) ->
 
    Host = binary_to_list(Host0),
    erlang:send_after(0, self(), query_init),
@@ -140,7 +151,13 @@ init(NodeId, Inputs,
       fn_id = NodeId, flow_inputs = Inputs,
       ignore_resp_timeout = IgnoreRespTimeout,
       use_flow_ack = FlowAck,
-      dedup_queue = memory_queue:new(?DEDUP_QUEUE_SIZE)},
+      dedup_queue = memory_queue:new(?DEDUP_QUEUE_SIZE),
+
+      pg_port = PgPort,
+      pg_user = PgUser,
+      pg_pass = PgPass,
+      pg_tls = PgTls
+   },
 
    {ok, all,State}.
 
@@ -150,7 +167,7 @@ process(_In, #data_batch{points = []}, State = #state{}) ->
    {ok, State};
 %% not connected -> buffer
 process(_In, DataItem, State = #state{client = undefined, buffer = Buffer}) ->
-   lager:notice("got item when not connected"),
+   lager:warning("got item when not connected"),
    {ok, State#state{buffer = Buffer ++ [DataItem]}};
 %% busy -> buffer
 process(_In, DataItem, State = #state{busy = true, buffer = Buffer}) ->
@@ -187,6 +204,7 @@ handle_info({'DOWN', _MonitorRef, _Type, Pid, _Info}, State = #state{client = Pi
    handle_info(start_client, State#state{client = undefined});
 
 handle_info(query_init, State=#state{faxe_fields = undefined, db_fields = undefined}) ->
+   lager:warning("query_init with no fields defined"),
    %% special case to retrieve column names automatically
    NewState =
    case get_fields(State) of
@@ -266,8 +284,11 @@ send(Item, State = #state{query = Q, faxe_fields = Fields, remaining_fields_as =
    {DTag, PHashes, Query} = build(Item, Q, Fields, RemFieldsAs, State),
 %%   lager:info("built query ~p",[Query]),
    PendingData = #{last_dtag => DTag, item_hashes => PHashes},
+   T0 = erlang:monotonic_time(second),
    NewState = do_send(Item, Query, 0, State#state{last_error = undefined, pending_data = PendingData}),
+   T = erlang:monotonic_time(second)-T0,
    MBytes = faxe_util:bytes(Query),
+   case T > 2 of true -> lager:warning("~p sent ~p bytes in ~p sec", [?MODULE, MBytes, T]); _ -> ok end,
    node_metrics:metric(?METRIC_BYTES_SENT, MBytes, State#state.fn_id),
    node_metrics:metric(?METRIC_ITEMS_OUT, 1, State#state.fn_id),
    NewState.
@@ -280,7 +301,6 @@ resend_single(Item, State = #state{query = Q, faxe_fields = Fields, remaining_fi
 
 %% empty query
 do_send(_Item, undefined, _MaxFailedRetries, State) ->
-   lager:notice("no query to send, skip ..."),
    done_sending(State);
 %% reached max retries
 do_send(_Item, _Body, MaxFailedRetries, S = #state{failed_retries = MaxFailedRetries, last_error = Err}) ->
@@ -288,6 +308,7 @@ do_send(_Item, _Body, MaxFailedRetries, S = #state{failed_retries = MaxFailedRet
    done_sending(S);
 do_send(Item, Body, Retries, State = #state{client = Client, path = Path, headers = Headers}) ->
    Ref = gun:post(Client, Path, Headers, Body),
+   maybe_debug(Body, State),
    case catch(get_response(Client, Ref, State#state.ignore_resp_timeout)) of
       ok ->
          done_sending(State);
@@ -309,6 +330,7 @@ do_send(Item, Body, Retries, State = #state{client = Client, path = Path, header
 
 
 done_sending(State = #state{pending_data = #{last_dtag := DTag, item_hashes := HList}, dedup_queue = Queue}) ->
+%%   lager:info("~p ack multi : ~p",[?MODULE, DTag]),
    dataflow:ack(multi, DTag, State#state.flow_inputs),
    NewDedupQ = memory_queue:enq(HList, Queue),
    NewState = State#state{
@@ -325,10 +347,15 @@ maybe_continue(State = #state{}) ->
    erlang:send_after(0, self(), continue),
    State#state{busy = true}.
 
+maybe_debug(_Contents, #state{debug_mode = false}) ->
+   ok;
+maybe_debug(Contents, #state{}) ->
+   lager:notice("Crate query: ~p", [Contents]).
+
 %% bind values to the statement
 -spec build(#data_point{}|#data_batch{}, binary(), list(), binary(), #state{}) -> {integer(), list, iodata()|undefined}.
 build(Item, Query, Fields, RemFieldsAs, #state{dedup_queue = Queue}) ->
-   {DTag, PHashes, BulkArgs0}=Res = build_value_stmt(Item, Fields, RemFieldsAs, Queue),
+   {DTag, PHashes, BulkArgs0} = _Res = build_value_stmt(Item, Fields, RemFieldsAs, Queue),
 %%   lager:notice("got build result ~p",[Res]),
    JsonQuery =
    case BulkArgs0 of
@@ -361,10 +388,9 @@ build_batch([], _FieldList, _RemFieldsAs, _DedupQ, {DTag, PHashes, AccArgs}) ->
 build_batch([Point=#data_point{dtag = PointDTag}|Points], FieldList, RemFieldsAs, DedupQ, {_, PHashes, AccArgs}) ->
    PHash = erlang:phash2(Point#data_point{dtag = undefined}),
    NewAcc =
-   case memory_queue:member(PHash, DedupQ) of
+   case lists:member(PHash, PHashes) orelse memory_queue:member(PHash, DedupQ) of
       true ->
-         %% duplicate !!!
-         lager:notice("duplicate item found, will drop it - ~p",[Point]),
+         lager:warning("duplicate item found, will drop it - ~p",[Point]),
          {PointDTag, PHashes, AccArgs};
       false ->
          {PointDTag, [PHash|PHashes], [build_value_stmt2(Point, FieldList, RemFieldsAs) | AccArgs]}
@@ -439,15 +465,6 @@ get_response(Client, Ref, Ignore) ->
    end.
 
 -spec handle_response(integer(), binary()) -> ok|{error, invalid}|{failed, term()}.
-%%handle_response(_, _) ->
-%%%%   Err = <<"{\"error\":{\"message\":\"MaxBytesLengthExceededException[bytes can be at most 32766 in length; got 32910]\",\"code\":5000}}">>,
-%%   Err = <<"{\"error\":{\"message\":\"wasistdas\",\"code\":5002}}">>,
-%%   lager:error("Error ~p with body ~p",[500, Err]),
-%%   case catch jiffy:decode(Err, [return_maps]) of
-%%      #{<<"error">> := #{<<"code">> := Code, <<"message">> := ErrMsg}} ->
-%%         crate_ignore_rules:check_ignore_error(Code, ErrMsg);
-%%      _ -> {failed, server_error}
-%%   end;
 handle_response(<<"200">>, BodyJSON) ->
    handle_response_message(BodyJSON);
 handle_response(<<"4", _/binary>> = S,_BodyJSON) ->
@@ -501,7 +518,7 @@ get_fields(State = #state{table = Tab0, database = Db0}) ->
    receive
       {faxe_epgsql_stmt, connected} ->
          Res = faxe_epgsql_stmt:execute(PgClient, Stmt),
-%%         lager:info("Result from column statement: ~p",[Res]),
+         lager:info("Result from column statement: ~p",[Res]),
          case Res of
             {ok,[{column,<<"column_name">>,varchar,_,_,_,_,_,_}], Columns} ->
                ColumnNames = lists:map(fun({ColName}) -> ColName end, Columns),
@@ -514,7 +531,7 @@ get_fields(State = #state{table = Tab0, database = Db0}) ->
                {false, NewState}
          end
    after 4000 ->
-      lager:error("error getting column names from table"),
+      lager:error("error getting column names from table, timeout (4000)"),
       erlang:send_after(2000, self(), query_init),
       {false, NewState}
    end.
@@ -522,13 +539,13 @@ get_fields(State = #state{table = Tab0, database = Db0}) ->
 get_pg_client(State = #state{pg_client = C}) when is_pid(C) ->
    {C, State};
 get_pg_client(State = #state{pg_client = undefined,
-   host = Host, port = Port, user = User, pass = Pass, database = Db0}) ->
+   host = Host, pg_port = Port, pg_user = User, pg_pass = Pass, database = Db0, pg_tls = Tls}) ->
    Db = binary:replace(Db0, <<"\"">>, <<>>, [global]),
    {ok, PgClient} = faxe_epgsql_stmt:start_link(
       #{host => Host, port => Port,
          username => faxe_util:to_list(User),
          password => faxe_util:to_list(Pass),
-         database => Db}
+         database => Db, tls => Tls}
    ),
    {PgClient, State#state{pg_client = PgClient}}.
 

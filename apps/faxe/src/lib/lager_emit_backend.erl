@@ -40,7 +40,7 @@ init(Args) ->
    case faxe_event_handlers:get_enabled(debug, handler) of
       [] -> #state{level = Level}; %% not enabled;
       [{mqtt, HandlerOpts}] ->
-%%         lager:info("mqtt-opts: ~p",[HandlerOpts]),
+         lager:notice("init ~p",[?MODULE]),
          MqttOpts0 = faxe_event_handlers:mqtt_opts(HandlerOpts),
 %%         lager:info("options: ~p",[MqttOpts0]),
          Name = faxe_util:device_name(),
@@ -173,8 +173,7 @@ safe_value(List) when is_list(List) ->
 %% encode {line,char} tuple
 safe_value({V1, V2} = Line) when is_integer(V1) andalso is_integer(V2) ->
    list_to_binary(lists:flatten(io_lib:format("~p",[Line])));
-safe_value(Val) when is_function(Val) ->
-   io:format("safe_value: value is a function!~n"),
+safe_value(Val) when is_function(Val) -> 
    Val();
 safe_value(Val) ->
    Val.

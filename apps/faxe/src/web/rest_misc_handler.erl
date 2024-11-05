@@ -20,7 +20,7 @@
 -export([
 ]).
 
--define(BODY_LENGTH_TIMEOUT, #{length => 1000000, period => 10000}).
+-define(BODY_LENGTH_TIMEOUT, #{length => 7500000, period => 12000}).
 
 -record(state, {mode, dfs, level, backend, ignore_rule_type, ignore_rule_value}).
 
@@ -246,7 +246,9 @@ log_backends() ->
 log_backend(lager_logstash_backend) -> <<"logstash">>;
 log_backend(lager_console_backend) -> <<"console">>;
 log_backend(lager_file_backend) -> <<"file">>;
-log_backend(lager_emit_backend) -> <<"emit">>.
+log_backend(lager_observer_backend) -> <<"observer">>;
+log_backend(lager_emit_backend) -> <<"emit">>;
+log_backend(Other) -> atom_to_binary(Other).
 
 lager_handlers() ->
    AllConf = application:get_all_env(lager),
