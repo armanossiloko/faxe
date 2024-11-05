@@ -286,8 +286,11 @@ send(Item, State = #state{query = Q, faxe_fields = Fields, remaining_fields_as =
    {DTag, PHashes, Query} = build(Item, Q, Fields, RemFieldsAs, State),
 %%   lager:info("built query ~p",[Query]),
    PendingData = #{last_dtag => DTag, item_hashes => PHashes},
+   T0 = erlang:monotonic_time(second),
    NewState = do_send(Item, Query, 0, State#state{last_error = undefined, pending_data = PendingData}),
+   T = erlang:monotonic_time(second)-T0,
    MBytes = faxe_util:bytes(Query),
+   case T > 2 of true -> lager:warning("~p sent ~p bytes in ~p sec", [?MODULE, MBytes, T]); _ -> ok end,
    node_metrics:metric(?METRIC_BYTES_SENT, MBytes, State#state.fn_id),
    node_metrics:metric(?METRIC_ITEMS_OUT, 1, State#state.fn_id),
    NewState.
