@@ -156,8 +156,14 @@ process(_In, _, State = #state{}) ->
 %%
 %% new queue-message arrives ...
 %%
-handle_info({ {DTag, RKey}, {Payload, CorrelationId, _Headers}, Channel},
+%%handle_info({deliver, _QueueName, _Channel, _TagTuple, _PayloadData} = Data,
+%%    State=#state{parent_pid = Parent}) when is_pid(Parent) ->
+%%   %% send data to parent
+%%   Parent ! Data,
+%%   {ok, State};
+handle_info({deliver, _QueueName, Channel, {DTag, RKey}, {Payload, CorrelationId, _Headers}},
     State=#state{flownodeid = FNId, dedup_queue = Dedup, last_chan = _OldChannel}) ->
+
    node_metrics:metric(?METRIC_BYTES_READ, byte_size(Payload), FNId),
    node_metrics:metric(?METRIC_ITEMS_IN, 1, FNId),
 
