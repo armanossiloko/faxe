@@ -130,6 +130,7 @@ init(NodeId, Inputs,
    connection_registry:reg(NodeId, Host, Port, <<"http">>),
    %% use fully qualified table name here, ie. doc."0x23d"
    Path = case ETrace of false -> ?PATH; true -> <<?PATH/binary, ?ACTIVE_ERROR_TRACE/binary>> end,
+   Headers = ?HEADERS ++ http_lib:basic_auth_header(User, Pass),
 
    DBFields =
    case DBFields0 of
@@ -144,6 +145,7 @@ init(NodeId, Inputs,
       failed_retries = MaxRetries,
       remaining_fields_as = RemFieldsAs,
       tls = Tls, path = Path,
+      headers = Headers,
       table = quote_identifier(Table),
       db_fields = DBFields,
       faxe_fields = FaxeFields,
@@ -158,7 +160,7 @@ init(NodeId, Inputs,
       pg_pass = PgPass,
       pg_tls = PgTls
    },
-
+%%   lager:notice("STATE ~p",[lager:pr(State, ?MODULE)]),
    {ok, all,State}.
 
 %%% DATA IN
@@ -389,15 +391,16 @@ build_value_stmt2(P = #data_point{}, Fields, _RemFieldsAs) ->
 
 build_batch([], _FieldList, _RemFieldsAs, _DedupQ, {DTag, PHashes, AccArgs}) ->
    {DTag, lists:reverse(PHashes), lists:reverse(AccArgs)};
-build_batch([Point=#data_point{dtag = PointDTag}|Points], FieldList, RemFieldsAs, DedupQ, {_, PHashes, AccArgs}) ->
+build_batch([Point=#data_point{dtag = PointDTag}|Points], FieldList, RemFieldsAs, DedupQ, {LastDTag, PHashes, AccArgs}) ->
    PHash = erlang:phash2(Point#data_point{dtag = undefined}),
+   UseDTag = case PointDTag of undefined -> LastDTag; _ -> PointDTag end,
    NewAcc =
    case lists:member(PHash, PHashes) orelse memory_queue:member(PHash, DedupQ) of
       true ->
          lager:warning("duplicate item found, will drop it - ~p",[Point]),
-         {PointDTag, PHashes, AccArgs};
+         {UseDTag, PHashes, AccArgs};
       false ->
-         {PointDTag, [PHash|PHashes], [build_value_stmt2(Point, FieldList, RemFieldsAs) | AccArgs]}
+         {UseDTag, [PHash|PHashes], [build_value_stmt2(Point, FieldList, RemFieldsAs) | AccArgs]}
    end,
    build_batch(Points, FieldList, RemFieldsAs, DedupQ, NewAcc).
 
