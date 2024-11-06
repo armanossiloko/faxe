@@ -160,7 +160,7 @@ init(NodeId, Inputs,
       pg_pass = PgPass,
       pg_tls = PgTls
    },
-
+%%   lager:notice("STATE ~p",[lager:pr(State, ?MODULE)]),
    {ok, all,State}.
 
 %%% DATA IN
@@ -295,14 +295,18 @@ send(Item, State = #state{query = Q, faxe_fields = Fields, remaining_fields_as =
    node_metrics:metric(?METRIC_ITEMS_OUT, 1, State#state.fn_id),
    NewState.
 
-resend_single(Item, State = #state{query = Q, faxe_fields = Fields, remaining_fields_as = RemFieldsAs,
+maybe_resend_single(_Item, State = #state{single_resend = true}) ->
+   %% already tried -> done
+   done_sending(State);
+maybe_resend_single(Item, State = #state{query = Q, faxe_fields = Fields, remaining_fields_as = RemFieldsAs,
    query_point = QueryItem}) ->
    {_, _, Query} = build(QueryItem, Q, Fields, RemFieldsAs, State),
-%%   lager:notice("retry single item ~p",[QueryItem]),
+   lager:notice("retry single item ~p",[QueryItem]),
    do_send(Item, Query, State#state.failed_retries-1, State#state{last_error = undefined, single_resend = true}).
 
 %% empty query
-do_send(_Item, undefined, _MaxFailedRetries, State) ->
+do_send(Item, undefined, _MaxFailedRetries, State) ->
+   lager:notice("empty query with item ~p, done", [Item]),
    done_sending(State);
 %% reached max retries
 do_send(_Item, _Body, MaxFailedRetries, S = #state{failed_retries = MaxFailedRetries, last_error = Err}) ->
@@ -317,7 +321,7 @@ do_send(Item, Body, Retries, State = #state{client = Client, path = Path, header
       {error, retry_single, ListIndex} ->
          %% try with single data-point and done
          QueryPoint = get_query_point(Item, ListIndex),
-         resend_single(Item, State#state{query_point = QueryPoint});
+         maybe_resend_single(Item, State#state{query_point = QueryPoint});
       {error, What} ->
          do_send(Item, Body, Retries+1, State#state{last_error = What});
       %% when use_flow_ack retry "endless"
@@ -387,15 +391,16 @@ build_value_stmt2(P = #data_point{}, Fields, _RemFieldsAs) ->
 
 build_batch([], _FieldList, _RemFieldsAs, _DedupQ, {DTag, PHashes, AccArgs}) ->
    {DTag, lists:reverse(PHashes), lists:reverse(AccArgs)};
-build_batch([Point=#data_point{dtag = PointDTag}|Points], FieldList, RemFieldsAs, DedupQ, {_, PHashes, AccArgs}) ->
+build_batch([Point=#data_point{dtag = PointDTag}|Points], FieldList, RemFieldsAs, DedupQ, {LastDTag, PHashes, AccArgs}) ->
    PHash = erlang:phash2(Point#data_point{dtag = undefined}),
+   UseDTag = case PointDTag of undefined -> LastDTag; _ -> PointDTag end,
    NewAcc =
    case lists:member(PHash, PHashes) orelse memory_queue:member(PHash, DedupQ) of
       true ->
          lager:warning("duplicate item found, will drop it - ~p",[Point]),
-         {PointDTag, PHashes, AccArgs};
+         {UseDTag, PHashes, AccArgs};
       false ->
-         {PointDTag, [PHash|PHashes], [build_value_stmt2(Point, FieldList, RemFieldsAs) | AccArgs]}
+         {UseDTag, [PHash|PHashes], [build_value_stmt2(Point, FieldList, RemFieldsAs) | AccArgs]}
    end,
    build_batch(Points, FieldList, RemFieldsAs, DedupQ, NewAcc).
 
@@ -453,8 +458,8 @@ build_query(ValueList0, Table, RemFieldsAs) when is_list(ValueList0) ->
 get_response(Client, Ref, Ignore) ->
    case gun:await(Client, Ref, ?QUERY_TIMEOUT) of
       {response, _IsFin, Status, _Headers} ->
-      {ok, Message} = gun:await_body(Client, Ref),
-      handle_response(integer_to_binary(Status), Message);
+         {ok, Message} = gun:await_body(Client, Ref),
+         handle_response(integer_to_binary(Status), Message);
       {error, timeout} ->
          case Ignore of
             true ->
@@ -476,7 +481,8 @@ handle_response(<<"503">>, _BodyJSON) ->
    {failed, not_available};
 handle_response(<<"5", _/binary>> = S, BodyJSON) ->
    lager:error("Error ~p with body ~p",[S, BodyJSON]),
-   % <<"{\"error\":{\"message\":\"MaxBytesLengthExceededException[bytes can be at most 32766 in length; got 32910]\",\"code\":5000}}">>
+   % <<"{\"error\":{\"message\":\"MaxBytesLengthExceededException[bytes can be at most 32766 in length; got 32910]\",
+   % \"code\":5000}}">>
    case catch jiffy:decode(BodyJSON, [return_maps]) of
       #{<<"error">> := #{<<"code">> := Code, <<"message">> := ErrMsg}} ->
          crate_ignore_rules:check_ignore_error(Code, ErrMsg);
@@ -506,8 +512,34 @@ handle_response_message(RespMessage) ->
                lager:error("CrateDB: ~p of ~p rows not written, errors: ~p, will resend single (idx: ~p)",
                   [C, length(Results), Errs, ListIndex]),
                {error, retry_single, ListIndex}
-         end
+         end;
+
+      Other ->
+         lager:error("unexpected CrateDB response ~p", [Other])
    end.
+
+%%handle_response_message_1(RespMessage) ->
+%%   Response = jiffy:decode(RespMessage, [return_maps]),
+%%   case Response of
+%%      #{<<"results">> := Results} ->
+%%         %% count where rows := -2, and keep list index for item with error
+%%         NotWritten = lists:foldl(
+%%            fun
+%%               (#{<<"rowcount">> := -2, <<"error_message">> := E}, {Idx, Count, Errors, _}) ->
+%%                  {Idx + 1, Count + 1, Errors ++ [E], Idx};
+%%               (#{<<"rowcount">> := -2}, {Idx, Count, Errors, _}) -> {Idx + 1, Count + 1, Errors, Idx};
+%%               (_, {Idx, Count, Errors, CIdx}) -> {Idx, Count, Errors, CIdx}
+%%            end,
+%%            {1, 0, [], 0}, Results),
+%%
+%%         case NotWritten of
+%%            {_Idx, 0, [], _} -> ok;
+%%            {_Idx, C, Errs, ListIndex} ->
+%%               lager:error("CrateDB: ~p of ~p rows not written, errors: ~p, will resend single (idx: ~p)",
+%%                  [C, length(Results), Errs, ListIndex]),
+%%               {error, retry_single, ListIndex}
+%%         end
+%%   end.
 
 get_fields(State = #state{table = Tab0, database = Db0}) ->
    Tab = binary:replace(Tab0, <<"\"">>, <<>>, [global]),
