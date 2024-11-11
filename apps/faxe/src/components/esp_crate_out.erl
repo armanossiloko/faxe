@@ -300,13 +300,14 @@ maybe_resend_single(_Item, State = #state{single_resend = true}) ->
    done_sending(State);
 maybe_resend_single(Item, State = #state{query = Q, faxe_fields = Fields, remaining_fields_as = RemFieldsAs,
    query_point = QueryItem}) ->
-   {_, _, Query} = build(QueryItem, Q, Fields, RemFieldsAs, State),
+   NewState = State#state{last_error = undefined, single_resend = true},
+   {_, _, Query} = build(QueryItem, Q, Fields, RemFieldsAs, NewState),
    lager:notice("retry single item ~p",[QueryItem]),
-   do_send(Item, Query, State#state.failed_retries-1, State#state{last_error = undefined, single_resend = true}).
+   do_send(Item, Query, State#state.failed_retries-1, NewState).
 
 %% empty query
 do_send(Item, undefined, _MaxFailedRetries, State) ->
-   lager:notice("empty query with item ~p, done", [Item]),
+   lager:notice("empty query with pending data: ~p || item ~p, done", [State#state.pending_data, Item]),
    done_sending(State);
 %% reached max retries
 do_send(_Item, _Body, MaxFailedRetries, S = #state{failed_retries = MaxFailedRetries, last_error = Err}) ->
@@ -337,6 +338,10 @@ do_send(Item, Body, Retries, State = #state{client = Client, path = Path, header
 
 done_sending(State = #state{pending_data = #{last_dtag := DTag, item_hashes := HList}, dedup_queue = Queue}) ->
 %%   lager:info("~p ack multi : ~p",[?MODULE, DTag]),
+   case DTag of
+      undefined -> lager:notice("no DTag found in pending data!");
+      _ -> ok
+   end,
    dataflow:ack(multi, DTag, State#state.flow_inputs),
    NewDedupQ = memory_queue:enq(HList, Queue),
    NewState = State#state{
@@ -360,8 +365,8 @@ maybe_debug(Contents, #state{}) ->
 
 %% bind values to the statement
 -spec build(#data_point{}|#data_batch{}, binary(), list(), binary(), #state{}) -> {integer(), list, iodata()|undefined}.
-build(Item, Query, Fields, RemFieldsAs, #state{dedup_queue = Queue}) ->
-   {DTag, PHashes, BulkArgs0} = _Res = build_value_stmt(Item, Fields, RemFieldsAs, Queue),
+build(Item, Query, Fields, RemFieldsAs, #state{dedup_queue = Queue, single_resend = Resend}) ->
+   {DTag, PHashes, BulkArgs0} = _Res = build_value_stmt(Item, Fields, RemFieldsAs, Queue, Resend),
 %%   lager:notice("got build result ~p",[Res]),
    JsonQuery =
    case BulkArgs0 of
@@ -372,9 +377,13 @@ build(Item, Query, Fields, RemFieldsAs, #state{dedup_queue = Queue}) ->
    end,
    {DTag, PHashes, JsonQuery}.
 
-build_value_stmt(_B = #data_batch{points = Points}, Fields, RemFieldsAs, DedupQ) ->
-   build_batch(Points, Fields, RemFieldsAs, DedupQ, {0, [], []});
-build_value_stmt(P = #data_point{dtag = DTag}, Fields, RemFields, DedupQ) ->
+build_value_stmt(_B = #data_batch{points = Points}, Fields, RemFieldsAs, DedupQ, _) ->
+   build_batch(Points, Fields, RemFieldsAs, DedupQ, {undefined, [], []});
+build_value_stmt(P = #data_point{dtag = _DTag}, Fields, RemFields, _DedupQ, true) ->
+   Res = {undefined, [], build_value_stmt2(P, Fields, RemFields)},
+%%   lager:info("build_value_stmt for single resend ~p",[Res]),
+   Res;
+build_value_stmt(P = #data_point{dtag = DTag}, Fields, RemFields, DedupQ, _) ->
    PHash = erlang:phash2(P#data_point{dtag = undefined}),
    case memory_queue:member(PHash, DedupQ) of
       true -> {DTag, [], []};
