@@ -302,7 +302,7 @@ maybe_resend_single(Item, State = #state{query = Q, faxe_fields = Fields, remain
    query_point = QueryItem}) ->
    NewState = State#state{last_error = undefined, single_resend = true},
    {_, _, Query} = build(QueryItem, Q, Fields, RemFieldsAs, NewState),
-   lager:notice("retry single item ~p",[QueryItem]),
+   lager:notice("retry single item ~p",[flowdata:to_mapstruct(QueryItem)]),
    do_send(Item, Query, State#state.failed_retries-1, NewState).
 
 %% empty query
@@ -337,9 +337,9 @@ do_send(Item, Body, Retries, State = #state{client = Client, path = Path, header
 
 
 done_sending(State = #state{pending_data = #{last_dtag := DTag, item_hashes := HList}, dedup_queue = Queue}) ->
-%%   lager:info("~p ack multi : ~p",[?MODULE, DTag]),
-   case DTag of
-      undefined -> lager:notice("no DTag found in pending data!");
+%%   lager:info("done sending ~p ack multi : ~p",[?MODULE, DTag]),
+   case DTag == undefined andalso State#state.use_flow_ack == true of
+      true -> lager:notice("no DTag found in pending data, using flow_ack !");
       _ -> ok
    end,
    dataflow:ack(multi, DTag, State#state.flow_inputs),
@@ -402,7 +402,14 @@ build_batch([], _FieldList, _RemFieldsAs, _DedupQ, {DTag, PHashes, AccArgs}) ->
    {DTag, lists:reverse(PHashes), lists:reverse(AccArgs)};
 build_batch([Point=#data_point{dtag = PointDTag}|Points], FieldList, RemFieldsAs, DedupQ, {LastDTag, PHashes, AccArgs}) ->
    PHash = erlang:phash2(Point#data_point{dtag = undefined}),
-   UseDTag = case PointDTag of undefined -> LastDTag; _ -> PointDTag end,
+   UseDTag =
+      case PointDTag of
+         undefined ->
+%%            lager:notice("no dtag found for point: ~p",[Point]),
+            LastDTag;
+         _ ->
+            PointDTag
+      end,
    NewAcc =
    case lists:member(PHash, PHashes) orelse memory_queue:member(PHash, DedupQ) of
       true ->
@@ -611,3 +618,18 @@ quote_identifier(Identifier) when is_binary(Identifier) ->
    <<"\"", Identifier/binary, "\"">>;
 quote_identifier(Other) ->
    Other.
+
+
+
+
+%%[{"ts":1731329839571,
+%%"topic":"tgw.data.0x5bc2.plc_alarm_1.ce373162-452c-4849-8e6f-bb83e24e88d0",
+%%"stream_id":"ce373162-452c-4849-8e6f-bb83e24e88d0",
+%%"data":{"StateID":"bea0bbb1-dff5-4703-80f5-17b1f32606f0",
+%%"Start":1731329829580,
+%%"Plc":{"Name":"W001","ModuleNumber":1018},
+%%"ErrorType":"M",
+%%"ErrorMessage":"Event for camera trigger detected",
+%%"ErrorField":"M799_0101_TrigEvent01","End":1731329839601,"Duration":10021}}]
+
+%%[{"ts":1731329959602,"topic":"tgw.data.0x5bc2.plc_alarm_1.ce373162-452c-4849-8e6f-bb83e24e88d0","stream_id":"ce373162-452c-4849-8e6f-bb83e24e88d0","data":{"StateID":"2ebc41e2-3e92-4b83-ac79-c81a89fd692c","Start":1731329949618,"Plc":{"Name":"W001","ModuleNumber":1018},"ErrorType":"M","ErrorMessage":"Event for camera trigger detected","ErrorField":"M799_0101_TrigEvent01","End":1731329959636,"Duration":10018}}]
