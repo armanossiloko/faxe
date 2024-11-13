@@ -267,10 +267,14 @@ build_item(Payload, RKey,
         #state{as = As, include_topic = AddTopic, topic_key = TopicKey, dt_field = DTField, dt_format = DTFormat,
            clean_names = Clean}) ->
    Msg0 = flowdata:from_json_struct(Payload, DTField, DTFormat, Clean),
+   Item1 = case Msg0 of
+              #data_batch{points = [ThePoint]} -> ThePoint;
+              _ -> Msg0
+           end,
    Item0 =
       case AddTopic of
-         true -> flowdata:set_field(Msg0, TopicKey, RKey);
-         false -> Msg0
+         true -> flowdata:set_field(Item1, TopicKey, RKey);
+         false -> Item1
       end,
    flowdata:set_root(Item0, As).
 

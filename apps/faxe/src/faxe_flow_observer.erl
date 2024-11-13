@@ -276,7 +276,7 @@ cancel_timer(State = #state{timer_ref = TimerRef}) ->
 
 -spec remove_flow(Name :: binary()) -> true.
 remove_flow(Name) ->
-  ets:delete(?ETS_FLOW_OBSERVER_TABLE, Name).
+  catch ets:delete(?ETS_FLOW_OBSERVER_TABLE, Name).
 
 send_buffer(State = #state{message_buffer = []}) ->
   State;
