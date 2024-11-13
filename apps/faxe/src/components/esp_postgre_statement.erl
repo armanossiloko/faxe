@@ -141,7 +141,7 @@ handle_info(What, State) ->
 shutdown(State = #state{client = _C}) ->
    close(State).
 
-connect(State = #state{db_opts = Opts}) ->
+connect(State = #state{db_opts = Opts = #{host := Host}}) ->
    connection_registry:connecting(),
    case epgsql:connect(Opts) of
       {ok, C} ->
@@ -150,7 +150,7 @@ connect(State = #state{db_opts = Opts}) ->
          maybe_send_execute(NewState),
          NewState;
       {error, What} ->
-         lager:warning("Error connecting to postgre host: ~p",[What]),
+         lager:warning("Error connecting to postgre host ~p: ~p",[Host, What]),
          State
    end.
 
