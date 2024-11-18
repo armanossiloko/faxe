@@ -81,13 +81,13 @@ code_change(_OldVsn, State = #state{}, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-connect(State = #state{db_opts = Opts, parent = Parent}) ->
+connect(State = #state{db_opts = Opts = #{host := Host}, parent = Parent}) ->
 %%  lager:notice("db opts ~p",[Opts]),
   case epgsql:connect(Opts) of
     {ok, C} ->
       Parent ! {?MODULE, connected},
       State#state{client = C};
     {error, What} ->
-      lager:warning("Error connecting postgre: ~p",[What]),
+      lager:warning("Error connecting postgre on ~p: ~p",[Host, What]),
       State
   end.

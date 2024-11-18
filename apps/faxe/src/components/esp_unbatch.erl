@@ -35,6 +35,8 @@ init(_NodeId, _Inputs, #{}) ->
 
 process(_, #data_point{} = Point, State=#state{} ) ->
    {emit, Point, State};
+process(_, #data_batch{points = [Point]}, State=#state{} ) ->
+   {emit, Point, State};
 process(_, #data_batch{points = Points}, State=#state{} ) ->
    [dataflow:emit(Point) || Point <- Points],
    {ok, State}.

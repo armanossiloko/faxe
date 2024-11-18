@@ -180,7 +180,6 @@ process(_In, DataItem, State = #state{buffer = [_SomeItemm | _] = Buffer}) ->
    lager:notice("got item when buffer not empty"),
    {ok, State#state{buffer = Buffer ++ [DataItem]}};
 process(_In, DataItem, State) ->
-%%   lager:notice("got item process right away"),
    prepare_process(DataItem, State).
 
 prepare_process(DataItem, State = #state{query_from_lambda = true,
@@ -402,14 +401,7 @@ build_batch([], _FieldList, _RemFieldsAs, _DedupQ, {DTag, PHashes, AccArgs}) ->
    {DTag, lists:reverse(PHashes), lists:reverse(AccArgs)};
 build_batch([Point=#data_point{dtag = PointDTag}|Points], FieldList, RemFieldsAs, DedupQ, {LastDTag, PHashes, AccArgs}) ->
    PHash = erlang:phash2(Point#data_point{dtag = undefined}),
-   UseDTag =
-      case PointDTag of
-         undefined ->
-%%            lager:notice("no dtag found for point: ~p",[Point]),
-            LastDTag;
-         _ ->
-            PointDTag
-      end,
+   UseDTag = case PointDTag of undefined -> LastDTag; _ -> PointDTag end,
    NewAcc =
    case lists:member(PHash, PHashes) orelse memory_queue:member(PHash, DedupQ) of
       true ->
@@ -620,16 +612,3 @@ quote_identifier(Other) ->
    Other.
 
 
-
-
-%%[{"ts":1731329839571,
-%%"topic":"tgw.data.0x5bc2.plc_alarm_1.ce373162-452c-4849-8e6f-bb83e24e88d0",
-%%"stream_id":"ce373162-452c-4849-8e6f-bb83e24e88d0",
-%%"data":{"StateID":"bea0bbb1-dff5-4703-80f5-17b1f32606f0",
-%%"Start":1731329829580,
-%%"Plc":{"Name":"W001","ModuleNumber":1018},
-%%"ErrorType":"M",
-%%"ErrorMessage":"Event for camera trigger detected",
-%%"ErrorField":"M799_0101_TrigEvent01","End":1731329839601,"Duration":10021}}]
-
-%%[{"ts":1731329959602,"topic":"tgw.data.0x5bc2.plc_alarm_1.ce373162-452c-4849-8e6f-bb83e24e88d0","stream_id":"ce373162-452c-4849-8e6f-bb83e24e88d0","data":{"StateID":"2ebc41e2-3e92-4b83-ac79-c81a89fd692c","Start":1731329949618,"Plc":{"Name":"W001","ModuleNumber":1018},"ErrorType":"M","ErrorMessage":"Event for camera trigger detected","ErrorField":"M799_0101_TrigEvent01","End":1731329959636,"Duration":10018}}]
