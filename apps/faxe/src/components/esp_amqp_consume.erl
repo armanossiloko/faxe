@@ -264,19 +264,26 @@ restart_ack_timeout(State = #state{ack_after = Time, ack_timer = Timer}) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 build_item(Payload, RKey,
-        #state{as = As, include_topic = AddTopic, topic_key = TopicKey, dt_field = DTField, dt_format = DTFormat,
+        S = #state{as = As, include_topic = AddTopic, topic_key = TopicKey, dt_field = DTField, dt_format = DTFormat,
            clean_names = Clean}) ->
    Msg0 = flowdata:from_json_struct(Payload, DTField, DTFormat, Clean),
-   Item1 = case Msg0 of
-              #data_batch{points = [ThePoint]} -> ThePoint;
-              _ -> Msg0
-           end,
+   Item1 = check_item(Msg0, S),
    Item0 =
       case AddTopic of
          true -> flowdata:set_field(Item1, TopicKey, RKey);
          false -> Item1
       end,
    flowdata:set_root(Item0, As).
+
+check_item(#data_batch{points = Points}, #state{flow_ack = true}) ->
+   lager:warning("Cannot use flow_ack with data_batch items, " ++
+      "make sure data_point items are consumed from amqp, e.g. use |unbatch() node!"),
+   case Points of
+      [ThePoint] -> ThePoint;
+      _ -> exit(stop_wrong_item_type)
+   end;
+check_item(Item, _S) ->
+   Item.
 
 start_consumer(State = #state{opts = ConsumerOpts}) ->
    connection_registry:connecting(),
