@@ -377,6 +377,7 @@ build_nodes(NodeIds, Graph, Id) ->
          {NodeId, Label} = digraph:vertex(Graph, NodeId),
          #{component := Component, inports := Inports, outports := OutPorts, metadata := Metadata}
             = Label,
+
          {ok, Pid} = df_component:start_link(Component, Id, NodeId, Inports, OutPorts, Metadata),
 
          %%% dynamically compiled lambda expressions
