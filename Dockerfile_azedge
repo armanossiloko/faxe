@@ -1,5 +1,5 @@
 ### Build stage 0
-FROM erlang:22.3.4.27-alpine as base
+FROM erlang:22.3.4.27-alpine AS base
 
 RUN apk add git
 RUN apk add build-base binutils
