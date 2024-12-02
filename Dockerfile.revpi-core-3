@@ -1,5 +1,5 @@
 ### Build stage 0
-FROM balenalib/revpi-core-3-alpine:latest as erlang
+FROM balenalib/revpi-core-3-alpine:latest AS erlang
 
 ENV OTP_VERSION="22.3.4.10" \
     REBAR3_VERSION="3.11.1"
