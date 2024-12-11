@@ -27,7 +27,7 @@
    handle_ack/3]).
 
 
--define(QUEUE_TYPES, [<<"classic">>, <<"quorum">>]).
+-define(QUEUE_TYPES, [<<"classic">>, <<"quorum">>, <<>>]).
 
 %% state for direct publish mode
 -record(state, {
@@ -90,9 +90,9 @@ options() -> [
    {bindings, string_list, undefined},
    {qx_name, string, undefined}, %% not used currently
    {queue, any, undefined},
-   {queue_type, string, <<"quorum">>},
+   {queue_type, string, <<>>},
    {takeover_queue, string, undefined},
-   {takeover_queue_type, string, <<"quorum">>},
+   {takeover_queue_type, string, <<>>},
    {takeover_queue_vhost, string, undefined},
    {queue_prefix, string, {rabbitmq, queue_prefix}},
    {consumer_tag, string, undefined},
@@ -451,6 +451,11 @@ consumer_config(Opts = #{vhost := VHost, queue := Q, queue_type := QType, consum
    prefetch := Prefetch, exchange := XChange, root_exchange := RootEx, bindings := Bindings,
    routing_key := RoutingKey, confirm := Confirm, passive := Passive}) ->
 
+   QArgs = case QType of
+              [] -> [];
+              <<>> -> [];
+              _ -> [{"x-queue-type", QType}]
+           end,
    % Number of connections not relevant here,
    % because we start the consumer monitored not pooled
    Config0 =
@@ -466,7 +471,7 @@ consumer_config(Opts = #{vhost := VHost, queue := Q, queue_type := QType, consum
    SetupQ =
          [{queue, [
             {queue, Q},
-            {arguments, [{"x-queue-type", QType}]},
+            {arguments, QArgs},
             {passive, Passive},
             {exchange, XChange},
             {routing_key, RoutingKey},
