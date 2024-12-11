@@ -1,5 +1,5 @@
 ### Build stage 0
-FROM balenalib/amd64-alpine-python:3.8.6-latest as erlang
+FROM balenalib/amd64-alpine-python:3.8.6-latest AS erlang
 
 ### python requirements
 COPY python_requirements.txt ./
