@@ -49,6 +49,7 @@
 
    pending_data = #{} :: map(),
    dedup_queue :: memory_queue:memory_queue(),
+   deduplicate = true :: true|false,
    %% settings for the extra pg connection, when needed, see options below
    pg_port :: pos_integer(),
    pg_tls :: boolean(),
@@ -89,6 +90,7 @@ options() ->
       {error_trace, boolean, false},
       {ignore_response_timeout, boolean, true},
       {use_flow_ack, boolean, {amqp, flow_ack, enable}},
+      {deduplicate, boolean, true},
       %% connection params for the epgsql client used to fetch schema infos (when db_fields is undefined)
       %% the params default to the crate postgre protocol config settings
       {pg_port, integer, {crate, port}},
@@ -120,7 +122,7 @@ metrics() ->
 init(NodeId, Inputs,
     #{host := Host0, port := Port, database := DB, table := Table, user := User, pass := Pass,
        tls := Tls, db_fields := DBFields0, faxe_fields := FaxeFields, error_trace := ETrace,
-       remaining_fields_as := RemFieldsAs, max_retries := MaxRetries,
+       remaining_fields_as := RemFieldsAs, max_retries := MaxRetries, deduplicate := Deduplicate,
        ignore_response_timeout := IgnoreRespTimeout, use_flow_ack := FlowAck,
        pg_port := PgPort, pg_user := PgUser, pg_pass := PgPass, pg_tls := PgTls}) ->
 
@@ -154,13 +156,14 @@ init(NodeId, Inputs,
       ignore_resp_timeout = IgnoreRespTimeout,
       use_flow_ack = FlowAck,
       dedup_queue = memory_queue:new(?DEDUP_QUEUE_SIZE),
+      deduplicate = Deduplicate,
 
       pg_port = PgPort,
       pg_user = PgUser,
       pg_pass = PgPass,
       pg_tls = PgTls
    },
-%%   lager:notice("STATE ~p",[lager:pr(State, ?MODULE)]),
+
    {ok, all,State}.
 
 %%% DATA IN
@@ -180,6 +183,7 @@ process(_In, DataItem, State = #state{buffer = [_SomeItemm | _] = Buffer}) ->
    lager:notice("got item when buffer not empty"),
    {ok, State#state{buffer = Buffer ++ [DataItem]}};
 process(_In, DataItem, State) ->
+%%   lager:notice("got item process right away"),
    prepare_process(DataItem, State).
 
 prepare_process(DataItem, State = #state{query_from_lambda = true,
@@ -289,7 +293,7 @@ send(Item, State = #state{query = Q, faxe_fields = Fields, remaining_fields_as =
    NewState = do_send(Item, Query, 0, State#state{last_error = undefined, pending_data = PendingData}),
    T = erlang:monotonic_time(second)-T0,
    MBytes = faxe_util:bytes(Query),
-   case T > 2 of true -> lager:warning("~p sent ~p bytes in ~p sec", [?MODULE, MBytes, T]); _ -> ok end,
+   case T > 3 of true -> lager:warning("~p sent ~p bytes in ~p sec", [?MODULE, MBytes, T]); _ -> ok end,
    node_metrics:metric(?METRIC_BYTES_SENT, MBytes, State#state.fn_id),
    node_metrics:metric(?METRIC_ITEMS_OUT, 1, State#state.fn_id),
    NewState.
@@ -336,7 +340,6 @@ do_send(Item, Body, Retries, State = #state{client = Client, path = Path, header
 
 
 done_sending(State = #state{pending_data = #{last_dtag := DTag, item_hashes := HList}, dedup_queue = Queue}) ->
-%%   lager:info("done sending ~p ack multi : ~p",[?MODULE, DTag]),
    case DTag == undefined andalso State#state.use_flow_ack == true of
       true -> lager:notice("no DTag found in pending data, using flow_ack !");
       _ -> ok
@@ -364,9 +367,10 @@ maybe_debug(Contents, #state{}) ->
 
 %% bind values to the statement
 -spec build(#data_point{}|#data_batch{}, binary(), list(), binary(), #state{}) -> {integer(), list, iodata()|undefined}.
-build(Item, Query, Fields, RemFieldsAs, #state{dedup_queue = Queue, single_resend = Resend}) ->
-   {DTag, PHashes, BulkArgs0} = _Res = build_value_stmt(Item, Fields, RemFieldsAs, Queue, Resend),
-%%   lager:notice("got build result ~p",[Res]),
+build(Item, Query, Fields, RemFieldsAs, #state{dedup_queue = Queue, single_resend = Resend, deduplicate = Deduplicate}) ->
+   T0 = erlang:monotonic_time(microsecond),
+   {DTag, PHashes, BulkArgs0} = _Res = build_value_stmt(Item, Fields, RemFieldsAs, Queue, Resend, Deduplicate),
+   T1 = erlang:monotonic_time(microsecond),
    JsonQuery =
    case BulkArgs0 of
       [] -> undefined;
@@ -376,13 +380,16 @@ build(Item, Query, Fields, RemFieldsAs, #state{dedup_queue = Queue, single_resen
    end,
    {DTag, PHashes, JsonQuery}.
 
-build_value_stmt(_B = #data_batch{points = Points}, Fields, RemFieldsAs, DedupQ, _) ->
+%% with deduplication
+build_value_stmt(_B = #data_batch{points = Points}, Fields, RemFieldsAs, DedupQ, _, true) ->
    build_batch(Points, Fields, RemFieldsAs, DedupQ, {undefined, [], []});
-build_value_stmt(P = #data_point{dtag = _DTag}, Fields, RemFields, _DedupQ, true) ->
+%% without deduplication
+build_value_stmt(_B = #data_batch{points = Points}, Fields, RemFieldsAs, DedupQ, _, false) ->
+   build_batch_dirty(Points, Fields, RemFieldsAs, DedupQ, {undefined, [], []});
+build_value_stmt(P = #data_point{dtag = _DTag}, Fields, RemFields, _DedupQ, true, _) ->
    Res = {undefined, [], build_value_stmt2(P, Fields, RemFields)},
-%%   lager:info("build_value_stmt for single resend ~p",[Res]),
    Res;
-build_value_stmt(P = #data_point{dtag = DTag}, Fields, RemFields, DedupQ, _) ->
+build_value_stmt(P = #data_point{dtag = DTag}, Fields, RemFields, DedupQ, _, _) ->
    PHash = erlang:phash2(P#data_point{dtag = undefined}),
    case memory_queue:member(PHash, DedupQ) of
       true -> {DTag, [], []};
@@ -412,6 +419,14 @@ build_batch([Point=#data_point{dtag = PointDTag}|Points], FieldList, RemFieldsAs
    end,
    build_batch(Points, FieldList, RemFieldsAs, DedupQ, NewAcc).
 
+
+build_batch_dirty([], _FieldList, _RemFieldsAs, _DedupQ, {DTag, PHashes, AccArgs}) ->
+   {DTag, lists:reverse(PHashes), lists:reverse(AccArgs)};
+build_batch_dirty([Point=#data_point{dtag = PointDTag}|Points], FieldList, RemFieldsAs, DedupQ,
+    {LastDTag, PHashes, AccArgs}) ->
+   UseDTag = case PointDTag of undefined -> LastDTag; _ -> PointDTag end,
+   NewAcc = {UseDTag, PHashes, [build_value_stmt2(Point, FieldList, RemFieldsAs) | AccArgs]},
+   build_batch_dirty(Points, FieldList, RemFieldsAs, DedupQ, NewAcc).
 
 
 %% build base query
@@ -489,8 +504,7 @@ handle_response(<<"503">>, _BodyJSON) ->
    {failed, not_available};
 handle_response(<<"5", _/binary>> = S, BodyJSON) ->
    lager:error("Error ~p with body ~p",[S, BodyJSON]),
-   % <<"{\"error\":{\"message\":\"MaxBytesLengthExceededException[bytes can be at most 32766 in length; got 32910]\",
-   % \"code\":5000}}">>
+   % <<"{\"error\":{\"message\":\"MaxBytesLengthExceededException[bytes can be at most 32766 in length; got 32910]\",\"code\":5000}}">>
    case catch jiffy:decode(BodyJSON, [return_maps]) of
       #{<<"error">> := #{<<"code">> := Code, <<"message">> := ErrMsg}} ->
          crate_ignore_rules:check_ignore_error(Code, ErrMsg);
@@ -526,29 +540,6 @@ handle_response_message(RespMessage) ->
          lager:error("unexpected CrateDB response ~p", [Other])
    end.
 
-%%handle_response_message_1(RespMessage) ->
-%%   Response = jiffy:decode(RespMessage, [return_maps]),
-%%   case Response of
-%%      #{<<"results">> := Results} ->
-%%         %% count where rows := -2, and keep list index for item with error
-%%         NotWritten = lists:foldl(
-%%            fun
-%%               (#{<<"rowcount">> := -2, <<"error_message">> := E}, {Idx, Count, Errors, _}) ->
-%%                  {Idx + 1, Count + 1, Errors ++ [E], Idx};
-%%               (#{<<"rowcount">> := -2}, {Idx, Count, Errors, _}) -> {Idx + 1, Count + 1, Errors, Idx};
-%%               (_, {Idx, Count, Errors, CIdx}) -> {Idx, Count, Errors, CIdx}
-%%            end,
-%%            {1, 0, [], 0}, Results),
-%%
-%%         case NotWritten of
-%%            {_Idx, 0, [], _} -> ok;
-%%            {_Idx, C, Errs, ListIndex} ->
-%%               lager:error("CrateDB: ~p of ~p rows not written, errors: ~p, will resend single (idx: ~p)",
-%%                  [C, length(Results), Errs, ListIndex]),
-%%               {error, retry_single, ListIndex}
-%%         end
-%%   end.
-
 get_fields(State = #state{table = Tab0, database = Db0}) ->
    Tab = binary:replace(Tab0, <<"\"">>, <<>>, [global]),
    Db = binary:replace(Db0, <<"\"">>, <<>>, [global]),
@@ -560,7 +551,6 @@ get_fields(State = #state{table = Tab0, database = Db0}) ->
    receive
       {faxe_epgsql_stmt, connected} ->
          Res = faxe_epgsql_stmt:execute(PgClient, Stmt),
-         lager:info("Result from column statement: ~p",[Res]),
          case Res of
             {ok,[{column,<<"column_name">>,varchar,_,_,_,_,_,_}], Columns} ->
                ColumnNames = lists:map(fun({ColName}) -> ColName end, Columns),
@@ -610,5 +600,3 @@ quote_identifier(Identifier) when is_binary(Identifier) ->
    <<"\"", Identifier/binary, "\"">>;
 quote_identifier(Other) ->
    Other.
-
-

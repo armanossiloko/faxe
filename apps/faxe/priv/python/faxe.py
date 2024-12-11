@@ -31,6 +31,7 @@ class Faxe:
 
     ERL_CAST_PERSIST_STATE = Atom(b'persist_state')
     ERL_CAST_EMIT = Atom(b'emit_data')
+    ERL_CAST_ACK = Atom(b'ack_data')
     ERL_CAST_ERROR = Atom(b'python_error')
     ERL_CAST_LOG = Atom(b'python_log')
 
@@ -126,9 +127,9 @@ class Faxe:
         :param emit_data: dict
         """
         data = None
-        if 'points' in emit_data and isinstance(emit_data['points'], list):
+        if Faxe.is_batch_item(emit_data):
             data = json.dumps(emit_data)
-        elif 'fields' in emit_data and isinstance(emit_data['fields'], dict):
+        elif Faxe.is_point_item(emit_data):
             data = encode_data(emit_data)
 
         if data is not None:
@@ -136,6 +137,20 @@ class Faxe:
 
         if self._state_opts() == Faxe.STATE_MODE_EMIT:
             self.persist_state()
+
+    def ack(self, item_or_dtag, multi=True):
+        dtag = item_or_dtag
+        if Faxe.is_point_item(item_or_dtag):
+            dtag = Point.dtag(item_or_dtag)
+        elif Faxe.is_batch_item(item_or_dtag):
+            dtags = list()
+            for point in Batch.points(item_or_dtag):
+                dtags.append(Point.dtag(point))
+            dtag = max(dtags)
+            multi = True
+
+        cast(self._erlang_pid, (Faxe.ERL_CAST_ACK, dtag, multi))
+
 
     # persisted state handling #######################################################
 
@@ -218,7 +233,7 @@ class Faxe:
     def log(self, msg, level=LOG_LEVEL_NOTICE):
         """
         used to send a log message
-        :param msg: string
+        :param msg: term
         :param level: 'debug' | 'info' | 'notice' | 'warning' | 'error' | 'critical' | 'alert'
         """
         cast(self._erlang_pid, (Faxe.ERL_CAST_LOG, msg, level))
@@ -271,6 +286,15 @@ class Faxe:
 
         return args
 
+    @staticmethod
+    def is_batch_item(data):
+        return isinstance(data, dict) and ('points' in data) and isinstance(data['points'], list)
+
+    @staticmethod
+    def is_point_item(data):
+        return isinstance(data, dict) and ('fields' in data) and isinstance(data['fields'], dict)
+
+
 
 class Point:
     """
@@ -283,6 +307,11 @@ class Point:
     point['dtag'] = int
 
     """
+
+    FIELDS = 'fields'
+    TAGS = 'tags'
+    DTAG = 'dtag'
+    TS = 'ts'
 
     @staticmethod
     def new(ts=None):
@@ -380,10 +409,10 @@ class Point:
     @staticmethod
     def dtag(point_data, newdtag=None):
         if newdtag is not None:
-            point_data['dtag'] = newdtag
+            point_data[Point.DTAG] = newdtag
             return point_data
 
-        return point_data['dtag']
+        return point_data[Point.DTAG]
 
 
 class Batch:

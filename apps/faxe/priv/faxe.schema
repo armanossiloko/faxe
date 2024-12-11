@@ -363,9 +363,9 @@
     [{default, on}, {datatype, flag}]
 }.
 %% @doc max size (maximum number of connections) for the mqtt connection pool
-{mapping, "mqtt_pool.max_size", "faxe.mqtt_pool.max_size",
-    [{default, 30}, {datatype, integer}]
-}.
+%%{mapping, "mqtt_pool.max_size", "faxe.mqtt_pool.max_size",
+%%    [{default, 30}, {datatype, integer}]
+%%}.
 
 %% mqtt host
 {mapping, "mqtt.host", "faxe.mqtt.host",

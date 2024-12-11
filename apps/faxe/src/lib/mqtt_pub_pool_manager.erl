@@ -121,7 +121,7 @@ handle_info({down, Ip}, State = #state{pools_up = Up, ips_pools = _Pools}) ->
   inform_users(Ip, mqtt_disconnected, State),
   {noreply, State#state{pools_up = lists:delete(Ip, Up)}};
 handle_info({'EXIT', Pid, normal}, State = #state{}) ->
-  lager:warning("Pool-Handler exiting normal, will no restart: ~p",[Pid]),
+  lager:warning("Pool-Handler exiting normal, no restart: ~p",[Pid]),
   NewState = remove_handler(Pid, State),
   {noreply, NewState};
 %% handler exited

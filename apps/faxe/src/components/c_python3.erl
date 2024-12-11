@@ -33,7 +33,8 @@
    func_calls = [],
    as :: binary()|undefined,
    stop_on_exit :: boolean(),
-   state_max_size_bytes :: non_neg_integer()
+   state_max_size_bytes :: non_neg_integer(),
+   flow_inputs :: list()
 }).
 
 
@@ -102,9 +103,9 @@ static_call(Module, Class, Function, Args) ->
 %%init(NodeId, _Ins, #{cb_module := Callback} = Args, State = #node_state{state = Persisted}) ->
 %%   lager:warning("~p got persisted state: ~p",[Callback, State]),
 %%   init_all(NodeId, Args#{<<"_state">> => Persisted}).
-init(NodeId, _Ins, #{} = Args) ->
-   init_all(NodeId, Args).
-init_all(NodeId, #{cb_module := Callback, cb_class := CBClass, as := As, stop_on_exit := StopOnExit} = Args) ->
+init(NodeId, Ins, #{} = Args) ->
+   init_all(NodeId, Ins, Args).
+init_all(NodeId, Inputs, #{cb_module := Callback, cb_class := CBClass, as := As, stop_on_exit := StopOnExit} = Args) ->
    process_flag(trap_exit, true),
    PInstance = python_init(CBClass, Args, NodeId),
    State = #state{
@@ -115,7 +116,8 @@ init_all(NodeId, #{cb_module := Callback, cb_class := CBClass, as := As, stop_on
       python_args = Args,
       stop_on_exit = StopOnExit,
       state_max_size_bytes = faxe_config:get_sub(flow_state_persistence, state_max_size),
-      as = As},
+      as = As,
+      flow_inputs = Inputs},
    {ok, all, State}.
 
 process(_Inp, #data_batch{} = Batch, State = #state{python_instance = Python}) ->
@@ -133,8 +135,12 @@ process(_Inp, #data_point{} = Point, State = #state{python_instance = Python}) -
    pythra:cast(Python, [?PYTHON_POINT, Data]),
    {ok, State}.
 
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% python sends us data
+handle_info({ack_data, DTag, MultiAck} , State = #state{}) ->
+   Multi = case MultiAck of true -> multi; _ -> single end,
+   dataflow:ack(Multi, DTag, State#state.flow_inputs),
+   {ok, State};
 handle_info({emit_data, #{<<"fields">> := Fs}= Data} , State = #state{as = As}) when is_map(Fs)->
    Point = flowdata:point_from_json_map(Data),
    {emit, {1, from_map(Point, As)}, State};
@@ -215,10 +221,10 @@ batch_to_map(#data_batch{points = Points, start = Start, dtag = DTag}) ->
 
 from_map(P = #data_point{fields = Fields}, As) when is_map_key(<<"fields">>, Fields) ->
    NewFields = maps:get(<<"fields">>, Fields),
-   P1 = P#data_point{fields = maps:without([<<"dtag">>, <<"fields">>, <<"tags">>, <<"ts">>], NewFields)},
+   P1 = P#data_point{fields = maps:without([<<"fields">>, <<"tags">>], NewFields)},
    flowdata:set_root(P1, As);
 from_map(P = #data_point{fields = Fields}, As) ->
-   P1 = P#data_point{fields = maps:without([<<"dtag">>, <<"tags">>, <<"ts">>], Fields)},
+   P1 = P#data_point{fields = maps:without([<<"tags">>], Fields)},
    flowdata:set_root(P1, As).
 
 
@@ -243,7 +249,7 @@ python_init(CBClass, Args, NodeId) ->
 handle_exit(Reason, State = #state{stop_on_exit = true}) ->
    {stop, Reason, State};
 handle_exit(_R, State) ->
-   erlang:send_after(1000, self(), restart_python),
+   erlang:send_after(100, self(), restart_python),
    {ok, State#state{python_instance = undefined}}.
 
 

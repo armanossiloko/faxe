@@ -24,6 +24,7 @@
   metric/4,
   metric_name/3,
   node_metrics/1]).
+-export([counter_bump/3, counter_get/3, counter_bump/2, counter_get/2]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% METRICS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% setup all metrics for a flow
@@ -83,6 +84,31 @@ destroy_node_metrics(FlowId, NodeId, MetricList) ->
   NId = id(FlowId, NodeId),
   MF = fun({MetricName, _MetricType, _, _}) -> folsom_metrics:delete_metric(<<NId/binary, MetricName/binary>>) end,
   lists:foreach(MF, MetricList).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% ecount counters
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+counter_bump(Name, {FlowId, NodeId}) ->
+  ecount:count(counter_name(Name, FlowId, NodeId));
+counter_bump(Name, FlowNodeId) ->
+  ecount:count(counter_name(Name, FlowNodeId)).
+counter_bump(Name, FlowId, NodeId) ->
+  ecount:count(counter_name(Name, FlowId, NodeId)).
+
+counter_get(Name, {FlowId, NodeId}) ->
+  ecount:get(counter_name(Name, FlowId, NodeId));
+counter_get(Name, FlowNodeId) ->
+  ecount:get(counter_name(Name, FlowNodeId)).
+counter_get(Name, FlowId, NodeId) ->
+  ecount:get(counter_name(Name, FlowId, NodeId)).
+
+counter_name(Name, FlowNodeId) ->
+  <<Name/binary, FlowNodeId/binary>>.
+counter_name(Name, FlowId, NodeId) ->
+  FlowNodeId = id(FlowId, NodeId),
+  <<Name/binary, FlowNodeId/binary>>.
 
 
 metric(_Name, _Value, _FlowId, _NodeId) ->

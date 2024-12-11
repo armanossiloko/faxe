@@ -23,6 +23,7 @@ init([]) ->
     {rest_audit_server,
       {rest_audit_server, start_link, []},
       permanent, 5000, worker, []}
+
 %%    ,
 %%    {metrics_collector,
 %%      {metrics_collector, start_link, []},

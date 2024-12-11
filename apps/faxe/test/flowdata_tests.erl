@@ -290,7 +290,7 @@ json_basic_test() ->
    P = #data_point{ts = 1568029511598, fields = #{<<"id">> => <<"ioi2u34oiu23oi4u2oi4u2">>,
       <<"df">> => <<"01.002">>, <<"value1">> => 323424, <<"value2">> => <<"somestringvalue">>}},
    ?assertEqual(jiffy:decode(to_json(P), [return_maps]),
-      #{<<"df">> => <<"01.002">>,<<"dtag">> => <<"undefined">>,
+      #{<<"df">> => <<"01.002">>,
          <<"id">> => <<"ioi2u34oiu23oi4u2oi4u2">>,
          <<"ts">> => 1568029511598,<<"value1">> => 323424,
          <<"value2">> => <<"somestringvalue">>}
@@ -303,7 +303,7 @@ json_basic_vs_test() ->
       <<"df">> => <<"01.002">>,  <<"value1">> => 323424,
       <<"value2">> => <<"somestringvalue">>}},
    ?assertEqual(jiffy:decode(to_json(P), [return_maps]),
-      #{<<"df">> => <<"01.002">>,<<"dtag">> => <<"undefined">>,
+      #{<<"df">> => <<"01.002">>,
          <<"id">> => <<"ioi2u34oiu23oi4u2oi4u2">>,
          <<"ts">> => 1568029511598,<<"value1">> => 323424,
          <<"value2">> => <<"somestringvalue">>}
@@ -317,7 +317,7 @@ json_basic_datamap_test() ->
    },
    ?assertEqual(jiffy:decode(to_json(P), [return_maps]),
       #{<<"data">> => #{<<"value2">> => <<"somestringvalue">>},
-         <<"df">> => <<"01.002">>,<<"dtag">> => <<"undefined">>,
+         <<"df">> => <<"01.002">>,
          <<"id">> => <<"ioi2u34oiu23oi4u2oi4u2">>,
          <<"ts">> => 1568029511598,<<"value1">> => 323424}
 
@@ -328,7 +328,7 @@ json_basic_default_test() ->
    P = #data_point{ts = 1568029511598,
       fields = #{<<"value1">> => 323424, <<"value2">> => <<"somestringvalue">>}},
    ?assertEqual(jiffy:decode(to_json(P), [return_maps]),
-      #{<<"dtag">> => <<"undefined">>,<<"ts">> => 1568029511598,
+      #{<<"ts">> => 1568029511598,
          <<"value1">> => 323424,
          <<"value2">> => <<"somestringvalue">>}
 
@@ -346,7 +346,7 @@ json_basic_data_test() ->
       #{<<"data">> =>
       #{<<"value1">> => 323424,
          <<"value2">> => <<"somestringvalue">>},
-         <<"df">> => <<"01.002">>,<<"dtag">> => <<"undefined">>,
+         <<"df">> => <<"01.002">>,
          <<"id">> => <<"ioi2u34oiu23oi4u2oi4u2">>,
          <<"ts">> => 1568029511598}
 
@@ -364,7 +364,7 @@ json_basic_data_excl_test() ->
       #{<<"data">> =>
       #{<<"value1">> => 323424,
          <<"value2">> => <<"somestringvalue">>},
-         <<"df">> => <<"01.002">>,<<"dtag">> => <<"undefined">>,
+         <<"df">> => <<"01.002">>,
          <<"id">> => <<"ioi2u34oiu23oi4u2oi4u2">>,
          <<"ts">> => 1568029511598,<<"value1">> => 2323422,
          <<"value2">> => <<"savoi">>}
@@ -385,38 +385,39 @@ batch_to_json_test() ->
       [#{<<"data">> =>
       #{<<"value1">> => 323424,
          <<"value2">> => <<"somestringvalue">>},
-         <<"df">> => <<"01.002">>,<<"dtag">> => <<"undefined">>,
+         <<"df">> => <<"01.002">>,
          <<"id">> => <<"ioi2u34oiu23oi4u2oi4u2">>,
          <<"ts">> => 1568029512598,<<"value1">> => 2323422,
          <<"value2">> => <<"savoi">>},
          #{<<"data">> =>
          #{<<"value1">> => 323424,
             <<"value2">> => <<"somestringvalue">>},
-            <<"df">> => <<"01.002">>,<<"dtag">> => <<"undefined">>,
+            <<"df">> => <<"01.002">>,
             <<"id">> => <<"ioi2u34oiu23oi4u2oi4u2">>,
             <<"ts">> => 1568029513598,<<"value1">> => 2323422,
             <<"value2">> => <<"savoi">>},
          #{<<"data">> =>
          #{<<"value1">> => 323424,
             <<"value2">> => <<"somestringvalue">>},
-            <<"df">> => <<"01.002">>,<<"dtag">> => <<"undefined">>,
+            <<"df">> => <<"01.002">>,
             <<"id">> => <<"ioi2u34oiu23oi4u2oi4u2">>,
             <<"ts">> => 1568029514598,<<"value1">> => 2323422,
             <<"value2">> => <<"savoi">>},
          #{<<"data">> =>
          #{<<"value1">> => 323424,
             <<"value2">> => <<"somestringvalue">>},
-            <<"df">> => <<"01.002">>,<<"dtag">> => <<"undefined">>,
+            <<"df">> => <<"01.002">>,
             <<"id">> => <<"ioi2u34oiu23oi4u2oi4u2">>,
             <<"ts">> => 1568029515598,<<"value1">> => 2323422,
             <<"value2">> => <<"savoi">>},
          #{<<"data">> =>
          #{<<"value1">> => 323424,
             <<"value2">> => <<"somestringvalue">>},
-            <<"df">> => <<"01.002">>,<<"dtag">> => <<"undefined">>,
+            <<"df">> => <<"01.002">>,
             <<"id">> => <<"ioi2u34oiu23oi4u2oi4u2">>,
             <<"ts">> => 1568029516598,<<"value1">> => 2323422,
             <<"value2">> => <<"savoi">>}]
+
 
    ).
 
@@ -625,7 +626,7 @@ msgpack_basic_test() ->
       {ok,#{<<"data">> =>
       #{<<"value1">> => 323424,
          <<"value2">> => <<"somestringvalue">>},
-         <<"df">> => <<"01.002">>,<<"dtag">> => <<"undefined">>,
+         <<"df">> => <<"01.002">>,
          <<"id">> => <<"ioi2u34oiu23oi4u2oi4u2">>,
          <<"ts">> => 1568029511598}}
 
