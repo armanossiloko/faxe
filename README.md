@@ -5,8 +5,9 @@ faxe
     Faxe is used to collect data from various sources, process and route this data and also store data to various DBs.
 
 
-    Read the documentation [here](https://heyoka.github.io/faxe-docs/site).
-    HTTP API documentation is [here](https://heyoka.github.io/faxe-docs/site/faxe_rest_api.html).
+### Read the documentation [here](https://heyoka.github.io/faxe-docs/site).
+
+### HTTP API documentation is [here](https://heyoka.github.io/faxe-docs/site/faxe_rest_api.html).
    
     
 Status
