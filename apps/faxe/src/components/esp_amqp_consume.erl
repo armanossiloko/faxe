@@ -424,13 +424,14 @@ build_item(Payload, RKey,
       end,
    flowdata:set_root(Item0, As).
 
-check_item(#data_batch{points = Points}, #state{flow_ack = true}) ->
+check_item(#data_batch{}, #state{flow_ack = true}) ->
    lager:warning("Cannot use flow_ack with data_batch items, " ++
-      "make sure data_point items are consumed from amqp, e.g. use |unbatch() node!"),
-   case Points of
-      [ThePoint] -> ThePoint;
-      _ -> exit(stop_wrong_item_type)
-   end;
+      "make sure data_point items are consumed from amqp, e.g. use |unbatch() node before sending data to the broker!"),
+   exit(stop_wrong_item_type);
+%%   case Points of
+%%      [ThePoint] -> ThePoint;
+%%      _ -> exit(stop_wrong_item_type)
+%%   end;
 check_item(Item, _S) ->
    Item.
 
