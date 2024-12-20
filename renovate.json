@@ -1,6 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "ignorePaths": ["Dockerfile_azedge", "Dockerfile_debian.intel-nuc", "Dockerfile.intel-nuc", "Dockerfile.revpi-core-3"],
+  "ignorePaths": ["Dockerfile_azedge", "Dockerfile.intel-nuc", "Dockerfile.revpi-core-3"],
   "customManagers": [
     {
       "customType": "regex",
