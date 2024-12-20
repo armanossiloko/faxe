@@ -18,7 +18,7 @@
       "description": "Match versions (per datasource and depName) in Dockerfile",
       "customType": "regex",
       "fileMatch": [
-        "Dockerfile"
+        "^(Dockerfile.*)$"
       ],
       "matchStrings": [
         "# renovate datasource: (?<datasource>[^,]+), depName: (?<depName>[^\\n]+)\\nENV .+?_VERSION=\"(?<currentValue>[^\"]+)\""
