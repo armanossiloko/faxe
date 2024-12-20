@@ -26,12 +26,10 @@
       "versioningTemplate": "loose"
     }
   ],
-  {
-    "packageRules": [
-      {
-        "matchPackageNames": ["erlang/otp"],
-        "extractVersion": "^OTP (?<version>.*)$"
-      }
-    ]
-  }
+  "packageRules": [
+    {
+      "matchPackageNames": ["erlang/otp"],
+      "extractVersion": "^OTP (?<version>.*)$"
+    }
+  ]
 }
