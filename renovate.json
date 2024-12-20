@@ -25,5 +25,13 @@
       ],
       "versioningTemplate": "loose"
     }
-  ]
+  ],
+  {
+    "packageRules": [
+      {
+        "matchPackageNames": ["erlang/otp"],
+        "extractVersion": "^OTP (?<version>.*)$"
+      }
+    ]
+  }
 }
