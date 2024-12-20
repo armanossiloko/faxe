@@ -3,12 +3,27 @@
   "ignorePaths": ["Dockerfile_azedge", "Dockerfile.intel-nuc", "Dockerfile.revpi-core-3"],
   "customManagers": [
     {
+      "description": "Match versions in rebar.config",
       "customType": "regex",
-      "description": "Update _VERSION variables in Dockerfiles",
-      "fileMatch": ["^(Dockerfile.*)$"],
+      "fileMatch": [
+        "rebar.config"
+      ],
+      "datasourceTemplate": "hex",
       "matchStrings": [
-        "#\\s*renovate:\\s*(datasource=(?<datasource>.*?) )?depName=(?<depName>.*?)( versioning=(?<versioning>.*?))?\\s*.*?_VERSION=(?<currentValue>.*)"
-      ]
+        "{(?<depName>[^,]+), \"(?<currentValue>\\d+\\.\\d+(\\.\\d+)?)\""
+      ],
+      "versioningTemplate": "semver"
+    },
+    {
+      "description": "Match versions (per datasource and depName) in Dockerfile",
+      "customType": "regex",
+      "fileMatch": [
+        "Dockerfile"
+      ],
+      "matchStrings": [
+        "# renovate datasource: (?<datasource>[^,]+), depName: (?<depName>[^\\n]+)\\nENV .+?_VERSION=\"(?<currentValue>[^\"]+)\""
+      ],
+      "versioningTemplate": "loose"
     }
   ]
 }
