@@ -28,6 +28,7 @@
   ],
   "packageRules": [
     {
+      "matchManagers": ["custom.regex"],
       "matchPackageNames": ["erlang/otp"],
       "extractVersion": "^OTP (?<version>.*)$"
     }
