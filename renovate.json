@@ -35,8 +35,6 @@
       "matchManagers": ["custom.regex"],
       "matchPackageNames": ["erlang/otp"],
       "extractVersion": "^OTP-(?<version>.*)$",
-      "matchUpdateTypes": ["major", "minor"],
-      "enabled": false
     }
   ]
 }
