@@ -1,3 +1,40 @@
 {
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json"
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "ignorePaths": ["Dockerfile_azedge", "Dockerfile.intel-nuc", "Dockerfile.revpi-core-3"],
+  "customManagers": [
+    {
+      "description": "Match versions in rebar.config",
+      "customType": "regex",
+      "fileMatch": [
+        "rebar.config"
+      ],
+      "datasourceTemplate": "hex",
+      "matchStrings": [
+        "{(?<depName>[^,]+), \"(?<currentValue>\\d+\\.\\d+(\\.\\d+)?)\""
+      ],
+      "versioningTemplate": "semver"
+    },
+    {
+      "description": "Match versions (per datasource and depName) in Dockerfile",
+      "customType": "regex",
+      "fileMatch": [
+        "^(Dockerfile.*)$"
+      ],
+      "matchStrings": [
+        "#\\s*renovate:\\s*(datasource=(?<datasource>.*?) )?depName=(?<depName>.*?)( versioning=(?<versioning>.*?))?\\s*.*?_VERSION=(?<currentValue>.*)"
+      ],
+      "versioningTemplate": "loose"
+    }
+  ],
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
+      "matchManagers": ["custom.regex"],
+      "matchPackageNames": ["erlang/otp"],
+      "extractVersion": "^OTP-(?<version>.*)$"
+    }
+  ]
 }

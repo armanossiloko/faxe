@@ -2,8 +2,10 @@
 FROM registry.datahub.tgw-group.cloud/docker-hub-proxy/python:3.9.20 AS debian
 
 ### erlang and rebar3
-ENV OTP_VERSION="25.3.2.2" \
-    REBAR3_VERSION="3.22.0"
+# renovate: datasource=github-tags depName=erlang/otp
+ARG OTP_VERSION=25.3.2.2
+# renovate: datasource=github-releases depName=erlang/rebar3
+ARG REBAR3_VERSION=3.22.0
 
 # system token to fetch tether
 ARG SYSTEM_ACCESSTOKEN
