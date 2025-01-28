@@ -28,10 +28,15 @@
 %% API
 -export([init/3, process/3, options/0, handle_info/2]).
 
+-define(DEFAULT_GROUP, <<"__default">>).
+
 -record(state, {
    node_id,
    fields,
-   values = [],
+   group_by,
+   values = #{},
+   %% if strict == true, every field given must change in order to open the gate
+   strict = true,
    reset_timeout,
    timeout,
    reset_timer,
@@ -40,81 +45,115 @@
 
 options() -> [
    {fields, binary_list, undefined},
+   {group_by, binary, ?DEFAULT_GROUP},
+   {strict, boolean, true},
    {reset_timeout, duration, undefined},
    {timeout, duration, undefined}
 ].
 
-init(_NodeId, _Ins, #{fields := FieldList, reset_timeout := ResetTimeout, timeout := TOut}) ->
+init(_NodeId, _Ins,
+    #{fields := FieldList, group_by := GroupBy, reset_timeout := ResetTimeout, timeout := TOut, strict := Strict}) ->
    ResetTime = timer_interval(ResetTimeout),
    TimeOut = timer_interval(TOut),
    Timer = start_timeout(TimeOut),
-   {ok, all, #state{fields = FieldList, reset_timeout = ResetTime, timeout = TimeOut, timer = Timer}}.
+   {ok, all,
+      #state{fields = FieldList, group_by = GroupBy,
+         reset_timeout = ResetTime, timeout = TimeOut,
+         timer = Timer, strict = Strict}}.
 
-process(_In, #data_batch{points = Points} = Batch,
-    State = #state{fields = FieldNames, values = Vals, reset_timer = TRef, reset_timeout = Time}) ->
+process(_In, #data_batch{points = Points} = Batch, State = #state{reset_timer = TRef, reset_timeout = Time}) ->
    cancel_timer(TRef),
-   {NewPoints, LastValues} = process_points(Points, [], Vals, FieldNames),
-   NewState = State#state{values = LastValues, reset_timer = reset_timeout(Time)},
+   {NewPoints, NewState0} = process_points(Points, [], State),
+   NewState = NewState0#state{reset_timer = reset_timeout(Time)},
    case NewPoints of
       [] -> {ok, NewState};
       Es when is_list(Es) -> {emit, Batch#data_batch{points = NewPoints}, NewState}
    end;
-process(_Inport, #data_point{} = Point,
-    State = #state{fields = Fields, values = LastValues, reset_timer = TRef, reset_timeout = Time}) ->
+process(_In, #data_point{} = Point, State = #state{reset_timer = TRef, reset_timeout = Time}) ->
    cancel_timer(TRef),
-   {Filtered, NewValues} = process_point(Point, LastValues, Fields),
-%%   lager:info("new last values: ~p" ,[NewValues]),
-   NewState = State#state{values = NewValues, reset_timer = reset_timeout(Time)},
+   {Filtered, NewState0} = process_data_point(Point, State),
+   NewState = NewState0#state{reset_timer = reset_timeout(Time)},
    case Filtered of
       Point -> {emit, Point, NewState};
-      _ -> {ok, NewState}
+      _ -> lager:warning("no change! ~p",[Point]), {ok, NewState}
    end
    .
+
+process_data_point(Point, State = #state{fields = Fields, values = Values, group_by = Group, strict = Strict}) ->
+   {GroupVal, LastValues} = get_last_values(Point, Values, Group),
+%%   lager:info("GroupVal is ~p",[GroupVal]),
+   {Filtered, NewValues} = process_point(Point, LastValues, Fields, Strict),
+   lager:info("new values for group ~p are: ~p",[GroupVal, NewValues]),
+   NewState = State#state{values = Values#{GroupVal => NewValues}},
+   {Filtered, NewState}.
 
 
 handle_info(reset_timeout, State) ->
 %%   lager:info("reset_timeout triggered"),
-   {ok, State#state{values = []}};
+   {ok, State#state{values = #{}}};
 handle_info(timeout, State = #state{timeout = T}) ->
-%%   lager:info("timeout triggered"),
    NewTimer = start_timeout(T),
-   {ok, State#state{values = [], timer = NewTimer}};
+   {ok, State#state{values = #{}, timer = NewTimer}};
 handle_info(_Req, State) ->
    {ok, State}.
 
+process_points([], NewPoints, NewState) ->
+   {NewPoints, NewState};
+process_points([P|RP], PointsAcc, State) ->
+   {Filtered, NewState} = process_data_point(P, State),
+   NewPoints =
+   case Filtered of
+      P -> PointsAcc ++ [P];
+      _ -> PointsAcc
+   end,
+   process_points(RP, NewPoints, NewState).
 
--spec process_points(list(), list(), list(), list()) -> {list(), list()}.
-process_points([], NewPoints, LastValues, _FieldNames) ->
-   {NewPoints, LastValues};
-process_points([P|RP], PointsAcc, LastValues, FieldNames) ->
-   {NewFields, NewLastValues} = process_point(P, LastValues, FieldNames),
-   process_points(RP, PointsAcc ++ [P#data_point{fields = NewFields}], NewLastValues, FieldNames).
 
--spec process_point(#data_point{}, list(), list()|undefined) -> {list(), list()}.
-process_point(P=#data_point{fields = Fields}, [], undefined) ->
+-spec process_point(#data_point{}, list(), list()|undefined, boolean()) -> {list(), list()}.
+process_point(P=#data_point{fields = Fields}, [], undefined, _Strict) ->
    {P, Fields};
-process_point(#data_point{fields = Fields}, Fields, undefined) ->
-   {#{}, Fields};
-process_point(P=#data_point{fields = Fields}, _LastValue, undefined) ->
+process_point(#data_point{fields = Fields}, Fields, undefined, _Strict) ->
+   {no_change, Fields};
+process_point(P=#data_point{fields = Fields}, _LastValues, undefined, _Strict) ->
    {P, Fields};
-process_point(Point = #data_point{}, [], FieldNames) ->
+process_point(Point = #data_point{}, [], FieldNames, _Strict) ->
    {Point, get_values(Point, FieldNames)};
-process_point(Point = #data_point{}, LastValues, FieldNames) ->
+process_point(Point = #data_point{}, LastValues, FieldNames, Strict) ->
    NewValues = get_values(Point, FieldNames),
-   Out = check(Point, LastValues, FieldNames, NewValues),
+   Out = check(Point, LastValues, FieldNames, NewValues, Strict),
    {Out, NewValues}.
 
 
-check(P, _, [], _) ->
+check(P, _, [], _, true) ->
    P;
-check(P = #data_point{}, LastValues, [FName|FieldNames], NewValues) ->
+check(_P, _, [], _, false) ->
+   undefined;
+check(P = #data_point{}, LastValues, [FName|FieldNames]=Fs, NewValues, Strict = false) ->
    case proplists:get_value(FName, LastValues) of
-      undefined -> check(P, LastValues, FieldNames, NewValues);
+      undefined -> P;
       Val -> case proplists:get_value(FName, NewValues) of
-                undefined -> check(P, LastValues, FieldNames, NewValues);
-                Value when Value =:= Val -> #{};
-                _ -> check(P, LastValues, FieldNames, NewValues)
+                undefined -> P;
+                Value when Value =:= Val -> check(P, LastValues, FieldNames, NewValues, Strict);
+                _ -> P
              end
+   end;
+check(P = #data_point{}, LastValues, [FName|FieldNames], NewValues, Strict = true) ->
+   case proplists:get_value(FName, LastValues) of
+      undefined -> check(P, LastValues, FieldNames, NewValues, Strict);
+      Val -> case proplists:get_value(FName, NewValues) of
+                undefined -> check(P, LastValues, FieldNames, NewValues, Strict);
+                Value when Value =:= Val -> no_change;
+                _ -> check(P, LastValues, FieldNames, NewValues, Strict)
+             end
+   end.
+
+
+get_last_values(#data_point{}, ValueMap, undefined) when is_map_key(?DEFAULT_GROUP, ValueMap) ->
+   {?DEFAULT_GROUP, maps:get(?DEFAULT_GROUP, ValueMap)};
+get_last_values(P=#data_point{}, ValueMap, GroupKey) ->
+   case flowdata:field(P, GroupKey) of
+      undefined -> {?DEFAULT_GROUP,[]};
+      Val -> {Val, maps:get(Val, ValueMap, [])}
    end.
 
 -spec get_values(#data_point{}, list()) -> list({Key :: binary(), Val :: any()}).
@@ -149,46 +188,46 @@ process_point_monitor_last_test() ->
    P = process_datapoint0(),
    LastVals = [{<<"val">>, 2.5}],
    ?assertEqual({P, [{<<"val">>, flowdata:field(P, <<"val">>)}]},
-      process_point(P, LastVals, [<<"val">>])).
+      process_point(P, LastVals, [<<"val">>], true)).
 process_point_monitor_nolast_test() ->
    P = process_datapoint0(),
    LastVals = [],
    ?assertEqual({P, [{<<"val">>, flowdata:field(P, <<"val">>)}]},
-      process_point(P, LastVals, [<<"val">>])).
+      process_point(P, LastVals, [<<"val">>], true)).
 process_point_monitor_lastequal_test() ->
    P = process_datapoint0(),
    LastVals = [{<<"val">>, flowdata:field(P, <<"val">>)}],
    NewVals = LastVals,
-   ?assertEqual({#{}, NewVals}, process_point(P, LastVals, [<<"val">>])).
+   ?assertEqual({no_change, NewVals}, process_point(P, LastVals, [<<"val">>], true)).
 process_point_monitor_one_lastequal_test() ->
    P = process_datapoint0(),
    LastVals = [{<<"val">>, #{<<"me">> => <<"muu">>}},{<<"val1">>, 1.343}],
    NewVals = [{<<"val">>, flowdata:field(P, <<"val">>)},{<<"val1">>, flowdata:field(P, <<"val1">>)}],
-   ?assertEqual({#{}, NewVals}, process_point(P, LastVals, [<<"val">>, <<"val1">>])).
+   ?assertEqual({no_change, NewVals}, process_point(P, LastVals, [<<"val">>, <<"val1">>], true)).
 process_point_all_nolast_test() ->
    P = process_datapoint(),
    LastVals = [],
-   ?assertEqual({P, P#data_point.fields}, process_point(P, LastVals, undefined)).
+   ?assertEqual({P, P#data_point.fields}, process_point(P, LastVals, undefined, false)).
 process_point_all_last_equal_test() ->
    P = process_datapoint(),
    LastVals = P#data_point.fields,
-   ?assertEqual({#{}, P#data_point.fields}, process_point(P, LastVals, undefined)).
+   ?assertEqual({no_change, P#data_point.fields}, process_point(P, LastVals, undefined, true)).
 process_point_all_last_nonequal_test() ->
    P = process_datapoint(),
    Fields = P#data_point.fields,
    LastVals0 = flowdata:set_field(P, <<"x.tails[3]">>, 2.5),
    LastVals = LastVals0#data_point.fields,
-   ?assertEqual({P, Fields}, process_point(P, LastVals, undefined)).
+   ?assertEqual({P, Fields}, process_point(P, LastVals, undefined, false)).
 process_point_filter_last_equal_test() ->
    P = process_datapoint(),
    LastVals = [{<<"x.tails">>, [1,2,3,4]}],
-   ?assertEqual({#{}, [{<<"x.tails">>, flowdata:field(P, <<"x.tails">>)}]},
-      process_point(P, LastVals, [<<"x.tails">>])).
+   ?assertEqual({no_change, [{<<"x.tails">>, flowdata:field(P, <<"x.tails">>)}]},
+      process_point(P, LastVals, [<<"x.tails">>], true)).
 process_point_filter_last_nonequal_test() ->
    P = process_datapoint(),
    LastVals = [{<<"x.tails[3]">>, 2.5}],
    ?assertEqual({P, [{<<"x.tails">>, flowdata:field(P, <<"x.tails">>)}]},
-      process_point(P, LastVals, [<<"x.tails">>])).
+      process_point(P, LastVals, [<<"x.tails">>], true)).
 process_datapoint0() ->
    #data_point{ts = 1, fields = maps:from_list([{<<"val">>, 1}, {<<"val1">>, 1.343}, {<<"val2">>, 2.222}])}.
 process_datapoint() ->

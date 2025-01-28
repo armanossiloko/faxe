@@ -100,7 +100,7 @@ options() -> [
    {root_exchange, string, undefined},
    {exchange_prefix, string, {rabbitmq, exchange_prefix}},
    {prefetch, integer, 70},
-   {ack_every, integer, 10},
+   {ack_every, integer, 30},
    {ack_after, duration, <<"5s">>},
    {use_flow_ack, bool, {amqp, flow_ack, enable}},
    {safe, boolean, false},

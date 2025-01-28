@@ -254,7 +254,7 @@ shutdown(#state{client = C, stmt = _Stmt} = S) ->
 
 connect(State = #state{db_opts = Opts, query = Q}) ->
    connection_registry:connecting(),
-%%   lager:info("CONNECT ~p db opts: ~p",[?MODULE, Opts]),
+   lager:info("CONNECT ~p db opts: ~p",[?MODULE, Opts]),
    case epgsql:connect(Opts) of
       {ok, C} ->
          connection_registry:connected(),
@@ -267,7 +267,7 @@ connect(State = #state{db_opts = Opts, query = Q}) ->
          end;
 
       {error, What} ->
-         lager:warning("Error connecting to crate: ~p",[What]),
+         lager:warning("Error connecting to crate(epgsql): ~p",[What]),
          State
    end.
 

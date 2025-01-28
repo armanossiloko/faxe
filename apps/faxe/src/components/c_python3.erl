@@ -34,7 +34,8 @@
    as :: binary()|undefined,
    stop_on_exit :: boolean(),
    state_max_size_bytes :: non_neg_integer(),
-   flow_inputs :: list()
+   flow_inputs :: list(),
+   last_item_sent :: #data_batch{}|#data_point{}
 }).
 
 
@@ -128,12 +129,12 @@ process(_Inp, #data_batch{} = Batch, State = #state{python_instance = Python}) -
       end,
 %%   lager:notice("send batch json to python with size: ~p", [length(Points)]),
    pythra:cast(Python, [?PYTHON_BATCH, Data]),
-   {ok, State}
+   {ok, State#state{last_item_sent = Batch}}
 ;
 process(_Inp, #data_point{} = Point, State = #state{python_instance = Python}) ->
    Data = to_map(Point),
    pythra:cast(Python, [?PYTHON_POINT, Data]),
-   {ok, State}.
+   {ok, State#state{last_item_sent = Point}}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% python sends us data
@@ -183,9 +184,9 @@ handle_info(start_debug, State) ->
    {ok, State};
 handle_info({'EXIT', Python,
    {message_handler_error, {python, PErrName, ErrorMsg, {'$erlport.opaque',python, _Bin} }}},
-    State = #state{python_instance = Python}) ->
+    State = #state{python_instance = Python, last_item_sent = LastItem}) ->
 
-   lager:warning("Python exited with: ~p",[{PErrName, ErrorMsg}]),
+   lager:warning("Python exited with: ~p | last item sent to this node: ~p",[{PErrName, ErrorMsg}, LastItem]),
    handle_exit(PErrName, State);
 %%   erlang:send_after(1000, self(), restart_python),
 %%   {ok, State#state{python_instance = undefined}};
