@@ -236,10 +236,6 @@ next(State=#state{queue = Q, adapt_interval = AdaptInt}) ->
    erlang:send_after(NewInterval, self(), deq),
    State#state{adapt_interval = NewAdaptInt}.
 
-publish({undefined, Msg, _Qos, _R}, #state{}) ->
-   lager:warning("mqtt topic is undefined, msg: ~p, will drop message!",[Msg]);
-publish({Topic, undefined, _Qos, _R}, #state{}) ->
-   lager:warning("mqtt message is undefined, topic: ~p, will drop message!",[Topic]);
 publish({Topic, Msg, Qos, Retained}, #state{client = C}) when is_binary(Msg); is_list(Msg) ->
    ok = emqttc:publish(C, Topic, Msg, [{qos, Qos}, {retain, Retained}]);
 publish({Topic, Msg}, State = #state{retained = Ret, qos = Qos}) ->

@@ -112,8 +112,7 @@ do_process(Key, Item, State = #state{flowid_nodeid = FNId, debug_mode = Debug}) 
 
 handle_info(start_debug, State) -> {ok, State#state{debug_mode = true}};
 handle_info(stop_debug, State) -> {ok, State#state{debug_mode = false}};
-handle_info({publisher_ack, Ref}, State) ->
-   lager:info("message acked: ~p",[Ref]),
+handle_info({publisher_ack, _Ref}, State) ->
    {ok, State};
 handle_info({'DOWN', _MonitorRef, process, Client, _Info}, #state{client = Client} = State) ->
    connection_registry:disconnected(),

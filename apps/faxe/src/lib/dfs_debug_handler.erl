@@ -34,7 +34,9 @@ handle_call(Request, State) ->
 
 code_change(_OldVsn, State, _Extra) -> {ok, State}.
 
-handle_info(_Info, State) -> {noreply, State}.
+handle_info(_Info, State) ->
+  lager:info("info in ~p: ~p",[?MODULE, _Info]),
+  {ok, State}.
 
 terminate(_Args, _State) -> ok.
 
