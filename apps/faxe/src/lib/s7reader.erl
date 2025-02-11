@@ -68,7 +68,8 @@ register(Opts = #{ip := Ip}, Interval, Vars) when is_list(Vars) ->
     _ -> start_reader(Opts)
 end,
 %%  lager:notice("So ~p wants to read: ~p every ~pms from ~p",[self(), Vars, Interval, Ip]),
-  Server ! {register, Interval, Vars, self()}.
+  Server ! {register, Interval, Vars, self()},
+  Server.
 
 start_reader(Opts = #{ip := _Ip}) ->
   %% we possibly get {error, {already_started, pid()}} here
