@@ -86,7 +86,8 @@ handle_info(gather, State = #state{}) ->
       fun({Key1, Conns1}) ->
          Ip = faxe_util:to_bin(Key1),
          S7Clients = s7pool_manager:get_clients(Key1),
-         #{<<"reader_stats">> => s7reader:get_stats(Ip), <<"peer">> => Ip,
+         PDULength = s7pool_manager:get_pdu_size(Ip),
+         #{<<"reader_stats">> => s7reader:get_stats(Ip), <<"peer">> => Ip, <<"pdu_length">> => PDULength,
             <<"num_connections">> => length(Conns1), <<"clients">> => length(S7Clients)}
       end,
       ets:tab2list(s7_pools)),
