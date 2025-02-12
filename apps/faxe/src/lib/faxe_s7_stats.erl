@@ -87,9 +87,9 @@ handle_info(gather, State = #state{}) ->
          Ip = faxe_util:to_bin(Key1),
          S7Clients = s7pool_manager:get_clients(Key1),
          PDULength =
-            case catch s7pool_manager:get_pdu_size(Ip) of
-               PDU when is_integer(PDU) -> PDU;
-               _ -> <<"na">>
+            case catch s7pool_manager:get_pdu_size(Key1) of
+               {ok, PDU} when is_integer(PDU) -> PDU;
+               Other -> lager:notice("get_pdu_size response is ~p",[Other]), <<"na">>
             end,
          #{<<"reader_stats">> => s7reader:get_stats(Ip), <<"peer">> => Ip, <<"pdu_length">> => PDULength,
             <<"num_connections">> => length(Conns1), <<"clients">> => length(S7Clients)}
