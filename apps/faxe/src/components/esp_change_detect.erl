@@ -75,15 +75,13 @@ process(_In, #data_point{} = Point, State = #state{reset_timer = TRef, reset_tim
    NewState = NewState0#state{reset_timer = reset_timeout(Time)},
    case Filtered of
       Point -> {emit, Point, NewState};
-      _ -> lager:warning("no change! ~p",[Point]), {ok, NewState}
+      _ -> {ok, NewState}
    end
    .
 
 process_data_point(Point, State = #state{fields = Fields, values = Values, group_by = Group, strict = Strict}) ->
    {GroupVal, LastValues} = get_last_values(Point, Values, Group),
-%%   lager:info("GroupVal is ~p",[GroupVal]),
    {Filtered, NewValues} = process_point(Point, LastValues, Fields, Strict),
-   lager:info("new values for group ~p are: ~p",[GroupVal, NewValues]),
    NewState = State#state{values = Values#{GroupVal => NewValues}},
    {Filtered, NewState}.
 
