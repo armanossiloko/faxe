@@ -222,8 +222,8 @@ code_change(_OldVsn, State = #state{}, _Extra) ->
 make_conn_ref(ConnStatus = #data_point{}) ->
   flowdata:fields(ConnStatus, ?CONN_REF_FIELDS).
 
-%% ignore status "connecting"
-conn_status_received(State, _P = #data_point{fields = #{?FIELD_CONN_STATUS := 1}}) ->
+%% ignore status "disconnected_ok"
+conn_status_received(State, _P = #data_point{fields = #{?CONN_FIELD_STATUS := 3}}) ->
   State;
 conn_status_received(State = #state{connection_issues = []}, ConnStatus = #data_point{}) ->
   case flowdata:field(ConnStatus, ?CONN_FIELD_CONNECTED) of

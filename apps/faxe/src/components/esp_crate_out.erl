@@ -172,7 +172,7 @@ process(_In, #data_batch{points = []}, State = #state{}) ->
    {ok, State};
 %% not connected -> buffer
 process(_In, DataItem, State = #state{client = undefined, buffer = Buffer}) ->
-   lager:warning("got item when not connected"),
+   lager:notice("got item when not connected"),
    {ok, State#state{buffer = Buffer ++ [DataItem]}};
 %% busy -> buffer
 process(_In, DataItem, State = #state{busy = true, buffer = Buffer}) ->
@@ -205,11 +205,10 @@ do_process(DataItem, State = #state{fn_id = _FNId}) ->
 
 handle_info({'DOWN', _MonitorRef, _Type, Pid, _Info}, State = #state{client = Pid}) ->
    connection_registry:disconnected(),
-   lager:warning("gun is down"),
    handle_info(start_client, State#state{client = undefined});
 
 handle_info(query_init, State=#state{faxe_fields = undefined, db_fields = undefined}) ->
-   lager:warning("query_init with no fields defined"),
+%%   lager:warning("query_init with no fields defined"),
    %% special case to retrieve column names automatically
    NewState =
    case get_fields(State) of
@@ -412,7 +411,7 @@ build_batch([Point=#data_point{dtag = PointDTag}|Points], FieldList, RemFieldsAs
    NewAcc =
    case lists:member(PHash, PHashes) orelse memory_queue:member(PHash, DedupQ) of
       true ->
-         lager:warning("duplicate item found, will drop it - ~p",[Point]),
+         lager:notice("duplicate item found, will drop it - ~p",[Point]),
          {UseDTag, PHashes, AccArgs};
       false ->
          {UseDTag, [PHash|PHashes], [build_value_stmt2(Point, FieldList, RemFieldsAs) | AccArgs]}

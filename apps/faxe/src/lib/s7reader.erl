@@ -16,6 +16,7 @@
 
 -define(SERVER, ?MODULE).
 -define(EMPTY_RETRY_INTERVAL, 300).
+-define(STOP_TIMEOUT, 5*60*1000).
 
 -define(STAT_LIST_LENGTH, 50).
 
@@ -41,7 +42,9 @@
   %% pdu-size of cached addresses
   cache_pdu_size    = 240         :: non_neg_integer(),
   %% read timer
-  timer             = undefined   :: undefined|reference()
+  timer             = undefined   :: undefined|reference(),
+  %% stop timer
+  stop_timer        = undefined   :: undefined|reference()
 }).
 
 %%%===================================================================
@@ -212,20 +215,24 @@ handle_info({read, Requests, [{_Intv, #faxe_timer{last_time = Ts}}|_] = SendTime
 
 handle_info(try_read, State) ->
   maybe_next(State);
-handle_info({register, Interval, Vars, ClientPid}, State = #state{}) ->
+handle_info({register, Interval, Vars, ClientPid}, State = #state{stop_timer = Timer}) ->
+  catch erlang:cancel_timer(Timer),
   NewState =
     case add_client_ets(ClientPid, Interval, Vars, State) of
       true -> do_register(ClientPid, Interval, Vars, State);
       false -> State
     end,
-  {noreply, NewState};
-handle_info({'DOWN', _MonitorRef, process, Client, _Info}, State = #state{}) ->
+  {noreply, NewState#state{stop_timer = undefined}};
+handle_info({'DOWN', _MonitorRef, process, Client, _Info}, State = #state{stop_timer = STimer}) ->
+  catch erlang:cancel_timer(STimer),
   NewState = remove_client(Client, State),
-  %% stop, if we have no clients left
+  %% start stop timer, if we have no clients left
+  NewTimer =
   case get_clients(State) of
-    [] -> {stop, normal, NewState};
-    _ -> {noreply, NewState}
-  end;
+    [] -> erlang:send_after(?STOP_TIMEOUT, self(), stop);
+    _ -> undfined
+  end,
+  {noreply, NewState#state{stop_timer = NewTimer}};
 handle_info({s7_connected, _Client}=M, State = #state{connected = true, retrieve_pdu_size = false}) ->
   %% alread connected / idempotency
   send_all_clients(M, State),
@@ -257,6 +264,9 @@ handle_info({'CHANGE', _MonitorReference, time_offset, clock_service, _NewTimeOf
   lager:warning("<~p> TIME_OFFSET changed ", [{?MODULE, self()}]),
   NewState = State#state{slot_timers = reset_slot_timers(State), timer = undefined},
   maybe_next(NewState);
+handle_info(stop, State = #state{s7_ip = Ip}) ->
+  lager:notice("~p for plc ip ~p is going to stop, no more clients left",[?MODULE, Ip]),
+  {stop, normal, State};
 handle_info(_Info, State = #state{}) ->
   maybe_next(State).
 

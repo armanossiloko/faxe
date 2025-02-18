@@ -135,10 +135,11 @@ handle_info({'EXIT', _C, Reason}, State = #state{}) ->
    {ok, NewState#state{}};
 handle_info(reconnect, State) ->
    {ok, connect(State)};
-handle_info(What, State) ->
+handle_info(_What, State) ->
    {ok, State}.
 
 shutdown(State = #state{client = _C}) ->
+   connection_registry:disconnected(),
    close(State).
 
 connect(State = #state{db_opts = Opts = #{host := Host}}) ->
@@ -211,6 +212,6 @@ close_or_execute(State = #state{interval = Interval}) ->
 
 close(State = #state{client = C}) ->
    catch epgsql:close(C),
-   connection_registry:disconnected(),
+   connection_registry:disconnected_ok(),
    %% set on_trigger to false, to avoid re-trigger by next incoming item
    State#state{client = undefined, on_trigger = false}.

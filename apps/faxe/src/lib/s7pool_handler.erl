@@ -115,6 +115,7 @@ handle_info({'EXIT', Pid, Why}, State = #state{pool = Pool, waiting_cons = Waiti
   {noreply, NewState}.
 
 terminate(_Reason, _State = #state{pool = P, waiting_cons = Waiting, ip = Ip}) ->
+  lager:notice("~p terminates with reason ~p",[?MODULE, _Reason]),
   [stop_worker(Con) || Con <- P ++ Waiting],
   %% ???
   ets:insert(s7_pools, {Ip, []}).

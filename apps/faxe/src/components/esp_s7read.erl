@@ -57,8 +57,7 @@
   port_data,
   address_offset,
   optimized = false :: true|false,
-  reader :: atom(),
-  parsed_addresses
+  reader :: atom()
 }).
 
 options() -> [
@@ -180,10 +179,8 @@ init({_, _NId}=NodeId, _Ins,
   {ok, all, init2(Parsed, State)}.
 
 init2(ParsedAddresses, State=#state{optimized = true, interval = Dur, opts = Opts, as_list = As1, reader = Reader}) ->
-  ReaderPid = Reader:register(Opts, Dur, lists:zip(As1, ParsedAddresses)),
-  erlang:monitor(process, ReaderPid),
-%%  lager:notice("RegResult ~p",[RegResult]),
-  State#state{client = ReaderPid, parsed_addresses = ParsedAddresses};
+  Reader:register(Opts, Dur, lists:zip(As1, ParsedAddresses)),
+  State;
 init2(ParsedAddresses, State=#state{opts = Opts, as_list = As1}) ->
   {Parts, AliasesList} = build_addresses(ParsedAddresses, As1),
 %%  lager:info("~n~p address parts: ~p ~n AliasesList: ~p",[?MODULE, Parts, AliasesList]),
@@ -289,11 +286,6 @@ handle_info({s7_data, Ts, DataList}, State = #state{diff = Diff, last_values = L
   NewState = State#state{last_values = #data_point{fields = NewFields}},
 %%  lager:warning("got s7 data and built point: ~p",[lager:pr(NewPoint, ?MODULE)]),
   maybe_emit(Diff, NewPoint, LastPoint, NewState);
-handle_info({'DOWN', _Mon, process, Client, _Info},
-    State = #state{client = Client, parsed_addresses = Adds, optimized = true}) ->
-  lager:notice("s7reader is down with info: ~p",[_Info]),
-  NewState = init2(Adds, State),
-  {ok, NewState};
 handle_info({'DOWN', _Mon, process, Client, _Info}, State = #state{client = Client, opts = Opts, timer = Timer}) ->
   lager:notice("s7worker is down"),
   connection_registry:disconnected(),
