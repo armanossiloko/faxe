@@ -10,7 +10,7 @@
 -define(MAX_UPLOAD_SIZE_BYTES, 5000000). %% ca 5 Mib
 
 init(Req, [{op, Mode}]) ->
-   lager:notice("upload handler: ~p", [Mode]),
+   lager:info("upload handler: ~p", [Mode]),
    {cowboy_rest, Req, Mode}.
 
 valid_entity_length(Req=#{body_length := Length}, State) ->

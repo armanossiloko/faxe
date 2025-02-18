@@ -565,7 +565,6 @@ decode(float, Data) ->
 decode(ltime, Data) ->
   [Res || <<Res:64/unsigned>> <= Data];
 decode(dt, Data) ->
-  lager:info("dt data ~p",[Data]),
   [decode_dt(D) || <<D:8/binary>> <= Data];
 decode(dtl, Data) ->
   [decode_dtl(Year, Month, Day, Hour, Minute, Second, NanoSec)
@@ -578,18 +577,6 @@ decode_dt(BinData) ->
     Other -> lager:error("Error when decoding DT: ~p", [Other]), <<"error">>
   end.
 
-%%do_decode_dt(
-%%    <<Y0:8/bits, Month:8/bits, Day:8/bits, Hour:8/bits, Min:8/bits, Sec:8/bits, Rest/binary>>) ->
-%%
-%%  Y = bcd:decode(Y0, 1),
-%%  Year = case Y < 90 of true -> 2000+Y; _ -> 1990+Y end,
-%%  DT =
-%%    {{Year, bcd:decode(Month, 1), bcd:decode(Day, 1)},
-%%      {{bcd:decode(Hour, 1), bcd:decode(Min, 1), bcd:decode(Sec, 1)}, 0}
-%%    },
-%%  lager:notice("DT_test: ~p", [DT]),
-%%  faxe_time:to_ms(DT).
-
 do_decode_dt(
     <<Y0:1/binary, Month:1/binary, Day:1/binary, Hour:1/binary, Min:1/binary, Sec:1/binary, Milli:12/bits, _WDay:4>>) ->
 
@@ -600,16 +587,6 @@ do_decode_dt(
       {{bcd:decode(Hour, 1), bcd:decode(Min, 1), bcd:decode(Sec, 1)}, bcd:decode2(Milli)}
     },
   faxe_time:to_ms(DT).
-
-%%decode_dt(DaysSince, MilliSince) ->
-%%  % first 4 bytes: days since 1.1.1992 or is it 1990 ?
-%%  % second 4 bytes: milliseconds since 00:00:00.000
-%%%%  DateStart = qdate:to_date({{1992,1,1}, {0,0,0}}),
-%%  DateStart = qdate:to_date({{1990,1,1}, {0,0,0}}),
-%%  Date = qdate:add_days(DaysSince, DateStart),
-%%  Timestamp0 = qdate:to_unixtime(Date) * 1000,
-%%  Timestamp0 + MilliSince.
-
 
 decode_dtl(Year, Month, Day, Hour, Minute, Second, NanoSec) ->
   faxe_time:to_ms({{Year, Month, Day}, {{Hour, Minute, Second}, round(NanoSec/1000000)}}).

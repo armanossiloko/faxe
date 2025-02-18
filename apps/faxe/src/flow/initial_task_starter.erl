@@ -109,12 +109,14 @@ handle_info(reload_tasks, State) ->
    %% ignore rules from config
    crate_ignore_rules:init_rules(),
 
-   mnesia:wait_for_tables(task, 3000),
+   mnesia:wait_for_tables(task, 4000),
    case faxe_config:get(auto_reload, false) of
       true ->
          lager:notice("reloading all tasks ... "),
          faxe:update_all(true);
-      false -> ok
+      false ->
+         lager:notice("no auto_reload"),
+         ok
    end,
    case faxe_config:get(auto_start_permanent, false) of
       true ->
