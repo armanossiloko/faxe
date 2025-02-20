@@ -115,13 +115,14 @@ handle_info(reload_tasks, State) ->
          lager:notice("reloading all tasks ... "),
          faxe:update_all(true);
       false ->
-         lager:notice("no auto_reload"),
          ok
    end,
    case faxe_config:get(auto_start_permanent, false) of
       true ->
          erlang:send_after(0, self(), start_tasks);
-      false -> ok
+      false ->
+         lager:notice("no auto_start"),
+         ok
    end,
    {noreply, State};
 handle_info(start_tasks, State) ->
