@@ -12,7 +12,7 @@
 %% API
 
 -export([add_client_addresses/3, build_addresses/2, remove_client/3, merge_addresses/2, bit_count/1]).
--export([build_spot_address/1, build_alarm/4, build_scada/4, build_spot_addresses/1]).
+-export([build_plc_address/1, build_alarm/4, build_scada/4, build_plc_addresses/1]).
 
 -define(S7_HEADER_LENGTH_BYTES, 7).
 -define(S7_FUNCTION_HEADER_BYTES, 12).
@@ -23,49 +23,52 @@
 
 -define(ALARMS_HEADER_OFFSET, 12).
 
-build_spot_addresses(VarList) when is_list(VarList) ->
+build_plc_addresses(VarList) when is_list(VarList) ->
 
   [begin
-     R = build_spot_address(Map),
-       case maps:get(<<"variable_address">>, Map, not_found) == R of
-         true -> ok;
-         _-> lager:notice("NO MATCH ~p:~p",[Map, R])
-       end
+     R = build_plc_address(Map),
+%%       case maps:get(<<"var_address">>, Map, not_found) == R of
+%%         true -> ok;
+%%         _-> lager:notice("NO MATCH ~p:~p",[Map, R])
+%%       end,
+     R
    end || Map <- VarList].
 
-build_spot_address(#{
+build_plc_address(#{
     <<"db">> := DbOffset0,
     <<"offset">> := AlarmAddressOffset,
     <<"byte">> := ByteNumber,
     <<"bit">> := BitNumber0}) ->
   build_alarm(DbOffset0, AlarmAddressOffset, ByteNumber, BitNumber0);
 
-build_spot_address(#{
+build_plc_address(#{
     <<"db">> := DbOffset0,
     <<"addr_offset">> := AddressOffset0,
     <<"var_type">> := VarType}=M) ->
   build_scada(DbOffset0, AddressOffset0, VarType, maps:get(<<"var_len">>, M, 1));
-build_spot_address(What) ->
-  lager:info("ignoring ~p",[What]),
-  <<"nope">>.
-
+build_plc_address(What) ->
+  lager:error("invalid plc address data given: ~p", [What]),
+  throw(invalid).
 
 build_alarm(DbOffset0, AlarmAddressOffset, ByteNumber, BitNumber0) ->
   AddressOffset = integer_to_binary(AlarmAddressOffset + ?ALARMS_HEADER_OFFSET + max(ByteNumber-1,0)),
   BitNumber = integer_to_binary(BitNumber0),
-  DbOffset = integer_to_binary(erlang:trunc(DbOffset0)),
+  DbOffset = integer_to_binary(trunc_num(DbOffset0)),
   <<"DB", DbOffset/binary, ".DBX", AddressOffset/binary, ".", BitNumber/binary>>.
 
 build_scada(DbOffset0, AddressOffset0, VarType, VarLength) ->
-  DbOffset = integer_to_binary(erlang:trunc(DbOffset0)),
+  DbOffset = integer_to_binary(trunc_num(DbOffset0)),
   AddressOffset1 =
   case VarType of
     <<"BOOL">> -> float_to_binary(AddressOffset0, [{decimals, 1}]);
-    <<"STRING">> -> io_lib:format("~p.~p", [erlang:trunc(AddressOffset0), VarLength]);
-    _ -> erlang:trunc(AddressOffset0)
+    <<"STRING">> -> io_lib:format("~p.~p", [trunc_num(AddressOffset0), VarLength]);
+    _ -> trunc_num(AddressOffset0)
   end,
   AddressOffset = faxe_util:to_bin(AddressOffset1),
   <<"DB", DbOffset/binary, ".DB", (atype(VarType))/binary, AddressOffset/binary>>.
+
+trunc_num(Input) ->
+  erlang:trunc(faxe_util:to_num(Input)).
 
 atype(<<"BOOL">>) -> <<"X">>;
 atype(<<"UINT">>) -> <<"W">>;

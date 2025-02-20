@@ -833,9 +833,14 @@
     [{default, on}, {datatype, flag}]
 }.
 %%
-%% flow health report interval
+%% Interval at which the observer reports the status of a flow, if there are not any other reports sent.
 {mapping, "flow_health.observer.report_interval", "faxe.flow_health.observer.report_interval",
     [{default, "3m"}, {datatype, {duration, ms}}]
+}.
+%%
+%% Interval at which the stopped status of a (permanent) flow is sent.
+{mapping, "flow_health.post_mortem.report_interval", "faxe.flow_health.post_mortem.report_interval",
+    [{default, "60m"}, {datatype, {duration, ms}}]
 }.
 
 %%

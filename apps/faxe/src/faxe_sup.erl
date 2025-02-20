@@ -95,6 +95,10 @@ init([]) ->
         {http_manager,
             {http_manager, start_link, []},
             permanent, 5000, worker, []}
+        ,
+        {flow_post_mortem,
+            {flow_post_mortem, start_link, []},
+            permanent, 5000, worker, []}
    ],
 
 %%    Ps =

@@ -10,7 +10,7 @@
 
 -include("faxe.hrl").
 
--export([start_link/1, is_alive/1, get_observer/1, stop/1, start_monitor/1]).
+-export([start_link/1, is_alive/1, get_observer/1, stop/1, start_monitor/1, mqtt_opts/0, topic_base/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
   code_change/3]).
 
@@ -135,8 +135,7 @@ init([FlowId, GraphPid]) ->
   mqtt_pub_pool_manager:connect(MqttOpts),
 
   %%% TOPIC
-  DeviceName = faxe_util:device_name(),
-  Topic = faxe_util:build_topic([BaseTopic, DeviceName, ?TOPIC_KEY, FlowId]),
+  Topic = faxe_util:build_topic([topic_base(BaseTopic), FlowId]),
 
   %%% REPORT TIMER
   Timer = start_timer(?REPORT_INTERVAL),
@@ -158,6 +157,10 @@ mqtt_opts() ->
   MqttOpts2 = faxe_util:proplists_merge(faxe_config:filter_empty_options(HandlerOpts), MqttOpts0),
   MqttOpts3 = maps:from_list(MqttOpts2),
   MqttOpts3#{retained => ?RETAINED, qos => ?QOS}.
+
+topic_base(BaseTopic) ->
+  DeviceName = faxe_util:device_name(),
+  faxe_util:build_topic([BaseTopic, DeviceName, ?TOPIC_KEY]).
 
 
 handle_call(_Request, _From, State = #state{}) ->
