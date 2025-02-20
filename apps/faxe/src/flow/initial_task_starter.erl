@@ -113,7 +113,11 @@ handle_info(reload_tasks, State) ->
    case faxe_config:get(auto_reload, false) of
       true ->
          lager:notice("reloading all tasks ... "),
-         faxe:update_all(true);
+         R = lists:filter(fun(E) -> E /= ok end, faxe:update_all(true)),
+         case R of
+            [] -> lager:notice("done reloading ok");
+            L -> [lager:warning("error when reloading flow ~p",[Err]) || Err <- L]
+         end;
       false ->
          ok
    end,
