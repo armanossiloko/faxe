@@ -13,7 +13,8 @@
    init/2, allowed_methods/2, config_json/2, content_types_provided/2,
    is_authorized/2, content_types_accepted/2, from_validate_dfs/2,
    malformed_request/2, from_set_loglevel/2, loglevels_json/2, config_all_json/2,
-   lang_nodes_json/2, python_list_json/2, from_crate_ignore_rule/2, crate_ignore_rules_json/2]).
+   lang_nodes_json/2, python_list_json/2, from_crate_ignore_rule/2,
+   crate_ignore_rules_json/2, lang_functions_json/2]).
 
 %%
 %% Additional callbacks
@@ -33,6 +34,8 @@ is_authorized(Req, State) ->
 allowed_methods(Req, S=#state{mode = loglevels}) ->
    {[<<"GET">>], Req, S};
 allowed_methods(Req, S=#state{mode = lang_nodes}) ->
+   {[<<"GET">>], Req, S};
+allowed_methods(Req, S=#state{mode = lang_functions}) ->
    {[<<"GET">>], Req, S};
 allowed_methods(Req, S=#state{mode = loglevel}) ->
    {[<<"POST">>], Req, S};
@@ -64,6 +67,10 @@ content_types_provided(Req, State = #state{mode = config}) ->
 content_types_provided(Req, State = #state{mode = lang_nodes}) ->
    {[
       {{<<"application">>, <<"json">>, []}, lang_nodes_json}
+   ], Req, State};
+content_types_provided(Req, State = #state{mode = lang_functions}) ->
+   {[
+      {{<<"application">>, <<"json">>, []}, lang_functions_json}
    ], Req, State};
 content_types_provided(Req, State = #state{mode = config_all}) ->
    {[
@@ -170,6 +177,8 @@ loglevels_json(Req, State=#state{}) ->
    {jiffy:encode(maps:from_list(Out), [uescape]), Req, State}.
 
 lang_nodes_json(Req, State=#state{}) ->
+   {jiffy:encode(graph_builder:node_opts(), [uescape]), Req, State}.
+lang_functions_json(Req, State=#state{}) ->
    {jiffy:encode(graph_builder:node_opts(), [uescape]), Req, State}.
 %% faxe's config hand picked
 config_json(Req, State=#state{mode = config}) ->

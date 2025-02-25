@@ -12,7 +12,7 @@
 %% API
 
 -export([add_client_addresses/3, build_addresses/2, remove_client/3, merge_addresses/2, bit_count/1]).
--export([build_plc_address/1, build_alarm/4, build_scada/4, build_plc_addresses/1]).
+-export([build_plc_address/1, build_alarm/4, build_scada/4, build_plc_addresses/1, build_plc_addresses/2]).
 
 -define(S7_HEADER_LENGTH_BYTES, 7).
 -define(S7_FUNCTION_HEADER_BYTES, 12).
@@ -34,6 +34,18 @@ build_plc_addresses(VarList) when is_list(VarList) ->
      R
    end || Map <- VarList].
 
+build_plc_addresses(VarList, FieldName) when is_list(VarList), is_binary(FieldName) ->
+
+  [begin
+     R = build_plc_address(Map),
+%%     lager:info("built ~p for field ~p",[R, FieldName]),
+%%       case maps:get(<<"var_address">>, Map, not_found) == R of
+%%         true -> ok;
+%%         _-> lager:notice("NO MATCH ~p:~p",[Map, R])
+%%       end,
+     Map#{FieldName => R}
+   end || Map <- VarList].
+
 build_plc_address(#{
     <<"db">> := DbOffset0,
     <<"offset">> := AlarmAddressOffset,
@@ -43,7 +55,7 @@ build_plc_address(#{
 
 build_plc_address(#{
     <<"db">> := DbOffset0,
-    <<"addr_offset">> := AddressOffset0,
+    <<"offset">> := AddressOffset0,
     <<"var_type">> := VarType}=M) ->
   build_scada(DbOffset0, AddressOffset0, VarType, maps:get(<<"var_len">>, M, 1));
 build_plc_address(What) ->
