@@ -550,7 +550,8 @@ decode(char, Data) ->
   [Res || <<Res:1/binary>> <= Data];
 decode(string, Data) ->
   %% strip null-bytes / control-chars
-  L = [binary_to_list(Res) || <<Res:1/binary>> <= Data, Res > <<31>>],
+  lager:notice("string_data: ~p", [Data]),
+  L = [binary_to_list(Res) || <<Res:1/binary>> <= Data, Res > <<31>>, Res < <<127>>],
   list_to_binary(lists:concat(L));
 decode(int, Data) ->
   [Res || <<Res:16/integer-signed>> <= Data];
