@@ -23,7 +23,7 @@
 -include("faxe.hrl").
 
 %% API
--export([init/3, process/3, options/0, wants/0, emits/0, shutdown/1]).
+-export([init/3, process/3, options/0, wants/0, emits/0, shutdown/1, check_options/0]).
 
 -record(state, {
    fields         :: list(),
@@ -42,6 +42,11 @@ options() ->
       {as, string_list, undefined},
       {lookup, any},
       {select_fields, string_list}
+   ].
+
+check_options() ->
+   [
+      {same_length, [select_fields, as]}
    ].
 
 wants() -> both.

@@ -52,13 +52,27 @@ options() -> [
    {exchange, string, {rabbitmq, root_exchange}},
    {ssl, is_set, {amqp, ssl, enable}},
    {persistent, bool, false},
-
    {qos, integer, 0}
 ].
 
 check_options() ->
-   [{one_of_params, [routing_key, routing_key_lambda, routing_key_field]},
-      {one_of, qos, [0, 1, 2]}].
+   [
+      {one_of_params, [routing_key, routing_key_lambda, routing_key_field]},
+      {one_of, qos, [0, 1, 2]},
+      {func, routing_key,
+         fun
+            (undefined) -> true;
+            (T) -> check_rk(T)
+         end, <<": ">>}
+   ].
+
+check_rk(<<>>) -> {false, <<"may not be empty">>};
+check_rk(<<"\"\"">>) -> {false, <<"may not be empty">>};
+check_rk(Bin) when is_binary(Bin)  ->
+   case binary:match(Bin, [<<"#">>, <<"*">>]) of
+      nomatch -> true;
+      _ -> {false, <<"must not contain '#' or '*'">>}
+   end.
 
 metrics() ->
    [

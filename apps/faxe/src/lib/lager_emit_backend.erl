@@ -92,7 +92,7 @@ handle_event(_Event, State) ->
 
 handle_info(update_flow_list, State = #state{}) ->
    List = proplists:get_keys(ets:tab2list(debug_trace_flows)),
-%%   lager:info("new flow_list: ~p",[List]),
+   lager:info("new flow_list: ~p",[List]),
    erlang:send_after(?FLOW_LIST_UPDATE_INTERVAL, self(), update_flow_list),
    {ok, State#state{flow_ids = List}};
 handle_info(reconnect, State = #state{mqtt_opts = MqttOpts}) ->
