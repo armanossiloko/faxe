@@ -49,7 +49,7 @@ init(Args) ->
          erlang:send_after(?START_DELAY, self(), reconnect),
          erlang:send_after(?FLOW_LIST_UPDATE_INTERVAL, self(), update_flow_list),
          MqttOpts1 = maps:from_list(MqttOpts0),
-         MqttOpts = MqttOpts1#{retained => false,  qos => 0 },
+         MqttOpts = MqttOpts1#{retained => false,  qos => 1 },
          #state{level = Level, mqtt_opts = MqttOpts, topic = Topic}
    end,
    {ok, State}.
@@ -72,7 +72,8 @@ handle_event({log, Message}, State = #state{level = Level, flow_ids = Flows}) ->
          %% we only log messages concerning dataflows
          MetaData = lager_msg:metadata(Message),
          case proplists:get_value(flow, MetaData) of
-            undefined ->
+            undefined  ->
+               lager:notice("no flow for msg ~p",[Message]),
                ok;
             FlowId ->
                case lists:member(FlowId, Flows) of
@@ -92,7 +93,6 @@ handle_event(_Event, State) ->
 
 handle_info(update_flow_list, State = #state{}) ->
    List = proplists:get_keys(ets:tab2list(debug_trace_flows)),
-   lager:info("new flow_list: ~p",[List]),
    erlang:send_after(?FLOW_LIST_UPDATE_INTERVAL, self(), update_flow_list),
    {ok, State#state{flow_ids = List}};
 handle_info(reconnect, State = #state{mqtt_opts = MqttOpts}) ->
