@@ -91,6 +91,7 @@ options() -> [
    {qx_name, string, undefined}, %% not used currently
    {queue, any, undefined},
    {queue_type, string, <<>>},
+   {takeover, boolean, false},
    {takeover_queue, string, undefined},
    {takeover_queue_type, string, <<>>},
    {takeover_queue_vhost, string, undefined},
@@ -137,6 +138,7 @@ init({GraphId, NodeId} = Idx, _Ins,
       queue_prefix := QPrefix, root_exchange := RExchange, exchange_prefix := XPrefix
       , use_flow_ack := FlowAck, clean_field_names := Clean,
    safe := Safe, confirm := Confirm, dedup_size := DedupSize,
+      takeover := Takeover,
       takeover_queue := TakeoverQ0, takeover_queue_type := TakeoverQType0, takeover_queue_vhost := _TakeoverVHost,
       '_parent_pid' := ParentPid, '_parent_subscriptions' := ParentSubs, passive := Passive
    } = Opts0) ->
@@ -156,17 +158,28 @@ init({GraphId, NodeId} = Idx, _Ins,
    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
    %% in case of takeover
    {TakeoverOpts, State1} =
-   case TakeoverQ0 of
-      undefined -> {undefined, State0};
-      TQ when is_binary(TQ) ->
-         TakeoverOpts0 = init_takeover_consumer(self(), Idx, CTag, Opts0),
-%%         print_opts(Opts0, TakeoverOpts0),
+   case Takeover of
+      false -> {undefined, State0};
+      true ->
+         TakeoverQ1 = eval_name(TakeoverQ0, Opts0, Idx),
+         TakeoverOpts0 = init_takeover_consumer(self(), Idx, CTag, Opts0#{takeover_queue => TakeoverQ1}),
          %% start takeover consumer
          State01 = State0#state{takeover_consumer_opts = TakeoverOpts0},
          TakeoverPid = start_takeover_consumer(State01),
          {TakeoverOpts0, State01#state{takeover_consumer_pid = TakeoverPid}}
-
    end,
+
+%%   case TakeoverQ0 of
+%%      undefined -> {undefined, State0};
+%%      TQ when is_binary(TQ) ->
+%%         TakeoverOpts0 = init_takeover_consumer(self(), Idx, CTag, Opts0),
+%%%%         print_opts(Opts0, TakeoverOpts0),
+%%         %% start takeover consumer
+%%         State01 = State0#state{takeover_consumer_opts = TakeoverOpts0},
+%%         TakeoverPid = start_takeover_consumer(State01),
+%%         {TakeoverOpts0, State01#state{takeover_consumer_pid = TakeoverPid}}
+%%
+%%   end,
    TakeoverQType = binary_to_list(TakeoverQType0),
    TakeoverQ = case is_map(TakeoverOpts) andalso is_map_key(queue, TakeoverOpts) of
                   true -> maps:get(queue, TakeoverOpts);
