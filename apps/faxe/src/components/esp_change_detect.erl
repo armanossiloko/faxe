@@ -127,7 +127,7 @@ check(P, _, [], _, true) ->
    P;
 check(_P, _, [], _, false) ->
    undefined;
-check(P = #data_point{}, LastValues, [FName|FieldNames]=Fs, NewValues, Strict = false) ->
+check(P = #data_point{}, LastValues, [FName|FieldNames], NewValues, Strict = false) ->
    case proplists:get_value(FName, LastValues) of
       undefined -> P;
       Val -> case proplists:get_value(FName, NewValues) of
