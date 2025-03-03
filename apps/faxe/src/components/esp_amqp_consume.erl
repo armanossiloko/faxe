@@ -93,6 +93,7 @@ options() -> [
    {queue_type, string, <<>>},
    {takeover, boolean, false},
    {takeover_queue, string, undefined},
+   {takeover_queue_prefix, string, {rabbitmq, queue_prefix}},
    {takeover_queue_type, string, <<>>},
    {takeover_queue_vhost, string, undefined},
    {queue_prefix, string, {rabbitmq, queue_prefix}},
@@ -139,7 +140,8 @@ init({GraphId, NodeId} = Idx, _Ins,
       , use_flow_ack := FlowAck, clean_field_names := Clean,
    safe := Safe, confirm := Confirm, dedup_size := DedupSize,
       takeover := Takeover,
-      takeover_queue := TakeoverQ0, takeover_queue_type := TakeoverQType0, takeover_queue_vhost := _TakeoverVHost,
+      takeover_queue := TakeoverQ0, takeover_queue_prefix := TakeoverQPrefix, takeover_queue_type := TakeoverQType0,
+      takeover_queue_vhost := _TakeoverVHost,
       '_parent_pid' := ParentPid, '_parent_subscriptions' := ParentSubs, passive := Passive
    } = Opts0) ->
 
@@ -162,7 +164,8 @@ init({GraphId, NodeId} = Idx, _Ins,
       false -> {undefined, State0};
       true ->
          TakeoverQ1 = eval_name(TakeoverQ0, Opts0, Idx),
-         TakeoverOpts0 = init_takeover_consumer(self(), Idx, CTag, Opts0#{takeover_queue => TakeoverQ1}),
+         TakeoverQ2 = faxe_util:prefix_binary(TakeoverQ1, TakeoverQPrefix),
+         TakeoverOpts0 = init_takeover_consumer(self(), Idx, CTag, Opts0#{takeover_queue => TakeoverQ2}),
          %% start takeover consumer
          State01 = State0#state{takeover_consumer_opts = TakeoverOpts0},
          TakeoverPid = start_takeover_consumer(State01),
@@ -185,6 +188,7 @@ init({GraphId, NodeId} = Idx, _Ins,
                   true -> maps:get(queue, TakeoverOpts);
                   false -> undefined
                end,
+%%   lager:notice("takeover_q opts ~p",[TakeoverOpts]),
    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
    Ex = eval_name(Ex0, Opts0, Idx),
    process_flag(trap_exit, true),
@@ -229,7 +233,9 @@ init_takeover_consumer(ParentPid, IdxParent, CTag,
       %% cannot use queue prefix
       queue_prefix => <<>>,
       %% and of course, no takeover queue for the takeover consumer
+      %% and also the flag will be set to false, otherwise we will run into a loop in 'init'
       takeover_queue => undefined,
+      takeover => false,
       consumer_tag => <<CTag/binary, "_takeover_consumer">>,
       '_name' => <<Name/binary, "_takeover">>,
       '_parent_pid' => ParentPid,
