@@ -81,6 +81,7 @@ process(_In, #data_point{} = Point, State = #state{reset_timer = TRef, reset_tim
 
 process_data_point(Point, State = #state{fields = Fields, values = Values, group_by = Group, strict = Strict}) ->
    {GroupVal, LastValues} = get_last_values(Point, Values, Group),
+%%   lager:notice("lastVal ~p, values ~p, group_by ~p",[LastValues, Values,Group]),
    {Filtered, NewValues} = process_point(Point, LastValues, Fields, Strict),
    NewState = State#state{values = Values#{GroupVal => NewValues}},
    {Filtered, NewState}.
@@ -147,6 +148,8 @@ check(P = #data_point{}, LastValues, [FName|FieldNames], NewValues, Strict = tru
 
 
 get_last_values(#data_point{}, ValueMap, undefined) when is_map_key(?DEFAULT_GROUP, ValueMap) ->
+   {?DEFAULT_GROUP, maps:get(?DEFAULT_GROUP, ValueMap)};
+get_last_values(#data_point{}, ValueMap, ?DEFAULT_GROUP) when is_map_key(?DEFAULT_GROUP, ValueMap) ->
    {?DEFAULT_GROUP, maps:get(?DEFAULT_GROUP, ValueMap)};
 get_last_values(P=#data_point{}, ValueMap, GroupKey) ->
    case flowdata:field(P, GroupKey) of
