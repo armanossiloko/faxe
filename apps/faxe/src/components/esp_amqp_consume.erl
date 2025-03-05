@@ -3,7 +3,7 @@
 %%% @copyright (C) 2019, <COMPANY>
 %%% @doc
 %%% Consume data from an amqp-broker like rabbitmq.
-%%% If safe is true -> use internal ondisc queue, otherwise just emit to downstream nodes
+%%% If safe is true -> use internal on disc queue, otherwise just emit to downstream nodes
 %%%
 %%% @end
 %%% Created : 27. May 2019 09:00
@@ -76,7 +76,9 @@
    parent_pid,
    parent_subscriptions = [],
    %% queue declare passive mode
-   passive
+   passive,
+   takeover_time,
+   takeover_timer
 }).
 
 options() -> [
@@ -92,6 +94,7 @@ options() -> [
    {queue, any, undefined},
    {queue_type, string, <<>>},
    {takeover, boolean, false},
+   {takeover_timeout, duration, <<"5m">>},
    {takeover_queue, string, undefined},
    {takeover_queue_prefix, string, {rabbitmq, queue_prefix}},
    {takeover_queue_type, string, <<>>},
@@ -139,7 +142,7 @@ init({GraphId, NodeId} = Idx, _Ins,
       queue_prefix := QPrefix, root_exchange := RExchange, exchange_prefix := XPrefix
       , use_flow_ack := FlowAck, clean_field_names := Clean,
    safe := Safe, confirm := Confirm, dedup_size := DedupSize,
-      takeover := Takeover,
+      takeover := Takeover, takeover_timeout := TakeoverTimeout,
       takeover_queue := TakeoverQ0, takeover_queue_prefix := TakeoverQPrefix, takeover_queue_type := TakeoverQType0,
       takeover_queue_vhost := _TakeoverVHost,
       '_parent_pid' := ParentPid, '_parent_subscriptions' := ParentSubs, passive := Passive
@@ -165,24 +168,15 @@ init({GraphId, NodeId} = Idx, _Ins,
       true ->
          TakeoverQ1 = eval_name(TakeoverQ0, Opts0, Idx),
          TakeoverQ2 = faxe_util:prefix_binary(TakeoverQ1, TakeoverQPrefix),
-         TakeoverOpts0 = init_takeover_consumer(self(), Idx, CTag, Opts0#{takeover_queue => TakeoverQ2}),
+         TakeoverTime = faxe_time:duration_to_ms(TakeoverTimeout),
+         NewTOpts = Opts0#{takeover_queue => TakeoverQ2, takeover_time => TakeoverTime},
+         TakeoverOpts0 = init_takeover_consumer(self(), Idx, CTag, NewTOpts),
          %% start takeover consumer
          State01 = State0#state{takeover_consumer_opts = TakeoverOpts0},
          TakeoverPid = start_takeover_consumer(State01),
          {TakeoverOpts0, State01#state{takeover_consumer_pid = TakeoverPid}}
    end,
 
-%%   case TakeoverQ0 of
-%%      undefined -> {undefined, State0};
-%%      TQ when is_binary(TQ) ->
-%%         TakeoverOpts0 = init_takeover_consumer(self(), Idx, CTag, Opts0),
-%%%%         print_opts(Opts0, TakeoverOpts0),
-%%         %% start takeover consumer
-%%         State01 = State0#state{takeover_consumer_opts = TakeoverOpts0},
-%%         TakeoverPid = start_takeover_consumer(State01),
-%%         {TakeoverOpts0, State01#state{takeover_consumer_pid = TakeoverPid}}
-%%
-%%   end,
    TakeoverQType = binary_to_list(TakeoverQType0),
    TakeoverQ = case is_map(TakeoverOpts) andalso is_map_key(queue, TakeoverOpts) of
                   true -> maps:get(queue, TakeoverOpts);
@@ -210,7 +204,7 @@ init({GraphId, NodeId} = Idx, _Ins,
    State = State1#state{
       opts = Opts, ack_after = AckTimeout, queue_type = QType,
       takeover_queue_name = TakeoverQ, queue_name = QName,
-      takeover_queue_type = TakeoverQType},
+      takeover_queue_type = TakeoverQType, takeover_time = maps:get(takeover_time, Opts, undefined)},
 
    NewState = maybe_init_q(State),
 
@@ -285,7 +279,7 @@ handle_info({deliver, _QueueName, Channel, {DTag, RKey}, {Payload, CorrelationId
    node_metrics:metric(?METRIC_BYTES_READ, byte_size(Payload), FNId),
    node_metrics:metric(?METRIC_ITEMS_IN, 1, FNId),
 
-   NewState = State#state{last_chan = Channel},
+   NewState = maybe_takeover_timeout(State#state{last_chan = Channel}),
    case
       State#state.flow_ack /= true andalso
          CorrelationId /= undefined andalso
@@ -312,10 +306,10 @@ handle_info({deliver, _QueueName, Channel, {DTag, RKey}, {Payload, CorrelationId
 
 handle_info({amqp_connected, Consumer}, #state{consumer = Consumer} = State) ->
    connection_registry:connected(),
-   {ok, State};
+   {ok, maybe_takeover_timeout(State)};
 handle_info({amqp_disconnected, Consumer}, #state{consumer = Consumer} = State) ->
    connection_registry:disconnected(),
-   {ok, State};
+   {ok, cancel_takeover_timeout(State)};
 handle_info({'DOWN', _MonitorRef, process, Consumer, {{shutdown, {server_initiated_close, 404, Msg}}, _GenCall} = Info},
       #state{consumer = Consumer, queue_name = QName, passive = true, parent_pid = Parent} = State) when is_pid(Parent)
    ->
@@ -330,7 +324,7 @@ handle_info({'DOWN', _MonitorRef, process, Consumer, {{shutdown, {server_initiat
    Parent ! takeover_queue_done,
    {ok, State};
 handle_info({'EXIT', TakeoverConsumer, normal}, #state{takeover_consumer_pid = TakeoverConsumer} = State) ->
-   {ok, State};
+   {ok, State#state{takeover_consumer_pid = undefined}};
 handle_info({'EXIT', TakeoverConsumer, Reason}, #state{takeover_consumer_pid = TakeoverConsumer} = State) ->
    lager:notice("Takeover consumer exited with reason ~p, will restart",[Reason]),
    TakeoverConsumerPid = start_takeover_consumer(State),
@@ -338,7 +332,7 @@ handle_info({'EXIT', TakeoverConsumer, Reason}, #state{takeover_consumer_pid = T
 handle_info({'DOWN', _MonitorRef, process, Consumer, Info}, #state{consumer = Consumer} = State) ->
    connection_registry:disconnected(),
    lager:notice("MQ-Consumer ~p is 'DOWN' for reason ~p",[Consumer, Info]),
-   {ok, start_consumer(State)};
+   {ok, start_consumer(cancel_takeover_timeout(State))};
 handle_info({'DOWN', _MonitorRef, process, Emitter, _Info}, #state{emitter = Emitter} = State) ->
    lager:notice("Q-Emitter ~p is 'DOWN'",[Emitter]),
    {ok, start_emitter(State)};
@@ -357,7 +351,7 @@ handle_info({takeover_data, CorrelationId}, State=#state{dedup_queue = Dedup, ta
    when is_pid(TPid) ->
    NewState =
    case memory_queue:member(CorrelationId, Dedup) of
-      true -> lager:warning("DUPLICATE from the takeover consumer with CorrId ~p, we should stop the consumer",
+      true -> lager:notice("DUPLICATE from the takeover consumer with CorrId ~p, we should stop the consumer",
          [CorrelationId]),
          %% stop the takeover consumer
          %% unbind and delete queue
@@ -369,6 +363,12 @@ handle_info({takeover_data, CorrelationId}, State=#state{dedup_queue = Dedup, ta
    end,
 
    {ok, NewState};
+%% takeover node will get this message
+handle_info(takeover_timeout, #state{consumer = Client, parent_pid = Parent} = State) ->
+   lager:notice("time is up for takeover, will stop and delete queue"),
+   Client ! unbind_delete_queue,
+   Parent ! takeover_queue_done,
+   {ok, State};
 handle_info(tookover, #state{consumer = Client} = State) ->
    Client ! unbind_delete_queue,
    {ok, State};
@@ -454,10 +454,14 @@ check_item(#data_batch{}, #state{flow_ack = true}) ->
 check_item(Item, _S) ->
    Item.
 
-start_consumer(State = #state{opts = ConsumerOpts}) ->
+start_consumer(State = #state{opts = ConsumerOpts = #{queue := QName}}) ->
    connection_registry:connecting(),
-   case catch rmq_consumer:start_monitor(self(), consumer_config(ConsumerOpts)) of
-      {ok, Pid, _NewConsumer} -> State#state{consumer = Pid};
+   COpts = consumer_config(ConsumerOpts),
+   case catch rmq_consumer:start_monitor(self(), COpts) of
+      {ok, Pid, _NewConsumer} ->
+         %% insert queue to registry
+%%         queue_cleaner:add_q(State#state.flownodeid, {QName, maps:from_list(COpts)}),
+         State#state{consumer = Pid};
       What -> lager:warning("Error when starting rmq consumer : ~p",[What]), State
    end.
 
@@ -522,3 +526,16 @@ eval_name(undefined, _Opts, {GraphId, NodeId}) ->
    <<GraphId/binary, "_", NodeId/binary>>;
 eval_name(Name, _Opts, _Idx) when is_binary(Name) ->
    Name.
+
+maybe_takeover_timeout(S = #state{takeover_time = undefined}) ->
+   S;
+maybe_takeover_timeout(S = #state{takeover_time = Time, takeover_timer = Timer}) ->
+   catch erlang:cancel_timer(Timer),
+   NewTimer = erlang:send_after(Time, self(), takeover_timeout),
+   S#state{takeover_timer = NewTimer}.
+
+cancel_takeover_timeout(S = #state{takeover_time = undefined}) ->
+   S;
+cancel_takeover_timeout(S = #state{takeover_timer = Timer}) ->
+   catch erlang:cancel_timer(Timer),
+   S#state{takeover_timer = undefined}.
