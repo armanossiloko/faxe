@@ -78,7 +78,8 @@
    %% queue declare passive mode
    passive,
    takeover_time,
-   takeover_timer
+   takeover_timer,
+   takeover_data :: memory_queue:memory_queue()
 }).
 
 options() -> [
@@ -174,7 +175,8 @@ init({GraphId, NodeId} = Idx, _Ins,
          %% start takeover consumer
          State01 = State0#state{takeover_consumer_opts = TakeoverOpts0},
          TakeoverPid = start_takeover_consumer(State01),
-         {TakeoverOpts0, State01#state{takeover_consumer_pid = TakeoverPid}}
+         TakeoverData = memory_queue:new(DedupSize),
+         {TakeoverOpts0, State01#state{takeover_consumer_pid = TakeoverPid, takeover_data = TakeoverData}}
    end,
 
    TakeoverQType = binary_to_list(TakeoverQType0),
@@ -207,8 +209,12 @@ init({GraphId, NodeId} = Idx, _Ins,
       takeover_queue_type = TakeoverQType, takeover_time = maps:get(takeover_time, Opts, undefined)},
 
    NewState = maybe_init_q(State),
+   %% connection reg only when parent is present -> we are the takeover consumer
+   case is_pid(State#state.parent_pid) of
+      false -> connection_registry:reg(Idx, Host, Port, <<"amqp">>);
+      true -> ok
+   end,
 
-   connection_registry:reg(Idx, Host, Port, <<"amqp">>),
    {ok, start_consumer(NewState)}.
 
 init_takeover_consumer(ParentPid, IdxParent, CTag,
@@ -253,11 +259,10 @@ start_takeover_consumer(#state{flownodeid = {GraphId, _NodeId}, takeover_consume
    Pid ! {start, [], push},
    Pid.
 
-%%print_opts(Opts0, Opts1) ->
-%%   maps:foreach(
-%%      fun(K, V) ->
-%%         lager:notice("~p => ~p :: ~p",[K,V, maps:get(K, Opts1, "---")])
-%%      end, Opts0).
+check_takeover_data(#state{takeover_data = undefined}, _Corr) ->
+   false;
+check_takeover_data(#state{takeover_data = TData}, CorrId) ->
+   memory_queue:member(CorrId, TData).
 
 maybe_init_q(State = #state{safe_mode = false}) ->
    State;
@@ -278,10 +283,18 @@ handle_info({deliver, _QueueName, Channel, {DTag, RKey}, {Payload, CorrelationId
 
    node_metrics:metric(?METRIC_BYTES_READ, byte_size(Payload), FNId),
    node_metrics:metric(?METRIC_ITEMS_IN, 1, FNId),
-
-   NewState = maybe_takeover_timeout(State#state{last_chan = Channel}),
+   TPid = State#state.takeover_consumer_pid,
+   State1 =
+   case is_pid(TPid) andalso check_takeover_data(State, CorrelationId) of
+      true ->
+         TPid ! tookover,
+         TPid ! stop,
+         State#state{takeover_consumer_pid = undefined, takeover_data = undefined};
+      false -> State
+   end,
+   NewState = maybe_takeover_timeout(State1#state{last_chan = Channel}),
    case
-      State#state.flow_ack /= true andalso
+      State1#state.flow_ack /= true andalso
          CorrelationId /= undefined andalso
          memory_queue:member(CorrelationId, Dedup)
    of
@@ -291,7 +304,7 @@ handle_info({deliver, _QueueName, Channel, {DTag, RKey}, {Payload, CorrelationId
       false ->
          %% store correlation_id, if we do not use flow_ack and also have no takeover consumer running
          NewDedup =
-         case State#state.flow_ack andalso not is_pid(State#state.takeover_consumer_pid) of
+         case State1#state.flow_ack andalso not is_pid(TPid) of
             true -> Dedup;
             false -> memory_queue:enq(CorrelationId, Dedup)
          end,
@@ -314,7 +327,7 @@ handle_info({'DOWN', _MonitorRef, process, Consumer, {{shutdown, {server_initiat
       #state{consumer = Consumer, queue_name = QName, passive = true, parent_pid = Parent} = State) when is_pid(Parent)
    ->
    % NOT_FOUND - no queue
-   connection_registry:disconnected(),
+%%   connection_registry:disconnected(),
    case estr:str_contains(Msg, <<"NOT_FOUND - no queue">>) of
       true -> lager:notice("MQ-Consumer ~p is 'DOWN' because takeover-queue ~p could not be found (passive mode)",
          [Consumer, QName]);
@@ -346,7 +359,7 @@ handle_info(stop_debug, State) -> {ok, State#state{debug_mode = false}};
 handle_info(takeover_queue_done, State=#state{takeover_consumer_pid = TPid}) ->
    lager:notice("takeover done!"),
    catch TPid ! stop,
-   {ok, State#state{takeover_consumer_pid = undefined}};
+   {ok, State#state{takeover_consumer_pid = undefined, takeover_data = undefined}};
 handle_info({takeover_data, CorrelationId}, State=#state{dedup_queue = Dedup, takeover_consumer_pid = TPid})
    when is_pid(TPid) ->
    NewState =
@@ -355,11 +368,14 @@ handle_info({takeover_data, CorrelationId}, State=#state{dedup_queue = Dedup, ta
          [CorrelationId]),
          %% stop the takeover consumer
          %% unbind and delete queue
-%%         State;
          TPid ! tookover,
          TPid ! stop,
          State#state{takeover_consumer_pid = undefined};
-      false -> State
+      false ->
+         %% insert data in takeover data queue
+         NewData = memory_queue:enq(CorrelationId, State#state.takeover_data),
+%%         lager:notice("new takeover data is ~p",[memory_queue:to_list(NewData)]),
+         State#state{takeover_data = NewData}
    end,
 
    {ok, NewState};
