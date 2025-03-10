@@ -363,6 +363,7 @@ maybe_update(DfsScript, T = #task{dfs = DFS}, false, ScriptType) ->
 
 -spec update(list()|binary(), #task{}, atom()) -> ok|{error, term()}.
 update(DfsScript, Task = #task{name = Name}, ScriptType) ->
+%%   lager:notice("update task ~p",[Name]),
    case eval_dfs(DfsScript, ScriptType, Name) of
       {DFS, Map} when is_map(Map) ->
          NewTask = Task#task{
@@ -678,9 +679,10 @@ delete_task(TaskId, Force) ->
          end
    end.
 
-do_delete_task(#task{id = TaskId, group = Group, group_leader = Leader}) ->
+do_delete_task(#task{id = TaskId, name = TName, group = Group, group_leader = Leader}) ->
    case faxe_db:delete_task(TaskId) of
       ok ->
+         queue_cleaner:clean(TName),
          case Leader of
             true ->
                delete_task_group(Group),

@@ -476,7 +476,7 @@ start_consumer(State = #state{opts = ConsumerOpts = #{queue := QName}}) ->
    case catch rmq_consumer:start_monitor(self(), COpts) of
       {ok, Pid, _NewConsumer} ->
          %% insert queue to registry
-%%         queue_cleaner:add_q(State#state.flownodeid, {QName, maps:from_list(COpts)}),
+         queue_cleaner:add_q(State#state.flownodeid, {QName, maps:from_list(COpts)}),
          State#state{consumer = Pid};
       What -> lager:warning("Error when starting rmq consumer : ~p",[What]), State
    end.

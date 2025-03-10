@@ -15,6 +15,12 @@
 -export([migrate/0]).
 
 migrate() ->
+  mnesia:create_table(flow_amqp_queues, [
+    {attributes, record_info(fields, flow_amqp_queues)},
+    {type, set},
+    {disc_copies, [node()]}
+  ]),
+  %faxe_db:add_extra_nodes(nodes()),
   ok
 %%  maybe_migrate_task_table()
 .

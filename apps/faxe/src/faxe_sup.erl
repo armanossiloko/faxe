@@ -99,6 +99,10 @@ init([]) ->
         {flow_post_mortem,
             {flow_post_mortem, start_link, []},
             permanent, 5000, worker, []}
+        ,
+        {queue_cleaner,
+            {queue_cleaner, start_link, []},
+            permanent, 5000, worker, []}
    ],
 
 %%    Ps =

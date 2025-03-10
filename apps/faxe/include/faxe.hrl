@@ -91,5 +91,13 @@
 
 }).
 
+-record(flow_amqp_queues, {
+  flow_id                     :: binary(),
+  node_id                     :: binary(),
+  queue_name                  :: binary(),
+  amqp_opts                   :: list()|map(),
+  remove_queue_deleted = true :: true|false
+}).
+
 
 

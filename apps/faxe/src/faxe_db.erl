@@ -10,7 +10,7 @@
 %% API
 
 %% db management
--export([renew_tables/0, create/0, db_init/0, export/1]).
+-export([renew_tables/0, create/0, db_init/0, export/1, add_extra_nodes/1]).
 
 %% api export
 -export([
@@ -46,6 +46,7 @@
    save_user/1,
    save_user/2,
    save_user/3, reset_templates/0, reset_users/0]).
+-export([get_flow_amqp_queues/1, save_flow_amqp_queue/1, delete_flow_amqp_queues/1]).
 
 get_all_tasks() ->
    get_all(task).
@@ -246,6 +247,16 @@ set_tags(TaskId, Tags) ->
    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+get_flow_amqp_queues(FlowId) ->
+   mnesia:dirty_read(flow_amqp_queues, FlowId).
+save_flow_amqp_queue(Qs) when is_list(Qs) ->
+   [save_flow_amqp_queue(Q) || Q <- Qs];
+save_flow_amqp_queue(Qs = #flow_amqp_queues{}) ->
+   mnesia:dirty_write(Qs).
+delete_flow_amqp_queues(FlowId) ->
+   mnesia:dirty_delete(flow_amqp_queues, FlowId).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 next_id(Table) ->
    mnesia:dirty_update_counter({ids, Table}, 1).
@@ -370,8 +381,12 @@ copy_tables(Node) ->
    ,
    Res8 = mnesia:add_table_copy(faxe_user, Node, disc_copies),
    lager:debug("remote_init add_table copy = ~p~n", [Res8])
+   ,
+   Res9 = mnesia:add_table_copy(flow_amqp_queues, Node, disc_copies),
+   lager:debug("remote_init add_table copy = ~p~n", [Res9])
 
 .
+
 
 renew_tables() ->
    mnesia:delete_table(task),
@@ -379,6 +394,7 @@ renew_tables() ->
    mnesia:delete_table(ids),
    mnesia:delete_table(tag_tasks),
    mnesia:delete_table(faxe_user),
+   mnesia:delete_table(flow_amqp_queues),
    create().
 
 %%
@@ -413,6 +429,11 @@ create() ->
 
    mnesia:create_table(faxe_user, [
       {attributes, record_info(fields, faxe_user)},
+      {type, set},
+      {disc_copies, [node()]}
+   ]),
+   mnesia:create_table(flow_amqp_queues, [
+      {attributes, record_info(fields, flow_amqp_queues)},
       {type, set},
       {disc_copies, [node()]}
    ]),
