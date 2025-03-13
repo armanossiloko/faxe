@@ -20,6 +20,8 @@
 %% API
 -export([init/3, process/3, options/0, handle_info/2, shutdown/1, metrics/0, check_options/0]).
 
+-define(VHOST_DEFAULT, <<"/">>).
+
 %% state for direct publish mode
 -record(state, {
    client,
@@ -45,7 +47,9 @@ options() -> [
    {port, integer, {amqp, port}},
    {user, string, {amqp, user}},
    {pass, string, {amqp, pass}},
-   {vhost, string, <<"/">>},
+   {vhost, string, ?VHOST_DEFAULT},
+   %% only applies, if vhost is NOT the default: '/'
+   {vhost_prefix, string, {rabbitmq, vhost_prefix}},
    {routing_key, string, undefined},
    {routing_key_lambda, lambda, undefined},
    {routing_key_field, string, undefined},
@@ -80,11 +84,11 @@ metrics() ->
    ].
 
 init({_GraphId, _NodeId} = Idx, _Ins,
-   #{ host := Host0, port := Port, user := _User, pass := _Pass, vhost := _VHost, exchange := Ex,
+   #{ host := Host0, port := Port, user := _User, pass := _Pass, vhost := VHost0, vhost_prefix := VHostPrefix, exchange := Ex,
       routing_key := RoutingKey, routing_key_lambda := RkLambda, routing_key_field := RkField, ssl := UseSSL,
       persistent := _Persist} = Opts0) ->
-
-   Opts1 = #{safe_mode := SafeMode, use_queue := UseInternalQueue} = eval_qos(Opts0),
+   VHost = case VHost0 of ?VHOST_DEFAULT -> VHost0; _ -> faxe_util:prefix_binary(VHost0, VHostPrefix) end,
+   Opts1 = #{safe_mode := SafeMode, use_queue := UseInternalQueue} = eval_qos(Opts0#{vhost => VHost}),
 
    process_flag(trap_exit, true),
    Host = binary_to_list(Host0),

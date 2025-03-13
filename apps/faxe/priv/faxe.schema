@@ -523,6 +523,12 @@
     [{default, "x_"}, {datatype, string}]
 }.
 
+%% rabbitmq default prefix for every vhost
+%% only applies, if vhost is NOT the default: '/'
+{mapping, "rabbitmq.vhost_prefix", "faxe.rabbitmq.vhost_prefix",
+    [{default, "dh_"}, {datatype, string}]
+}.
+
 %% @doc ------------------------------------------------------------------------------
 %% Queue takeover
 %% -----------------------------------------------------------------------------------

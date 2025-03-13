@@ -26,7 +26,7 @@
    check_options/0,
    handle_ack/3]).
 
-
+-define(VHOST_DEFAULT, <<"/">>).
 -define(QUEUE_TYPES, [<<"classic">>, <<"quorum">>, <<>>]).
 
 %% state for direct publish mode
@@ -89,6 +89,8 @@ options() -> [
    {pass, string, {amqp, pass}},
    {ssl, is_set, false},
    {vhost, string, <<"/">>},
+   %% only applies, if vhost is NOT the default: '/', applies to both vhost params
+   {vhost_prefix, string, {rabbitmq, vhost_prefix}},
    {routing_key, string, undefined},
    {bindings, string_list, undefined},
    {qx_name, string, undefined}, %% not used currently
@@ -137,9 +139,9 @@ metrics() ->
    ].
 
 init({GraphId, NodeId} = Idx, _Ins,
-   #{ host := Host0, port := Port, user := _User, pass := _Pass, vhost := VHost, queue := Q0, queue_type := QType0,
+   #{ host := Host0, port := Port, user := _User, pass := _Pass, vhost := VHost0, queue := Q0, queue_type := QType0,
       exchange := Ex0, qx_name := _QxName, prefetch := Prefetch, routing_key := RoutingKey0, bindings := Bindings0,
-      dt_field := DTField, dt_format := DTFormat, ssl := UseSSL, include_topic := IncludeTopic,
+      dt_field := DTField, dt_format := DTFormat, ssl := UseSSL, include_topic := IncludeTopic, vhost_prefix := VHostPrefix,
       topic_as := TopicKey, ack_every := AckEvery0, ack_after := AckTimeout0, as := As, consumer_tag := CTag0,
       queue_prefix := QPrefix, root_exchange := RExchange, exchange_prefix := XPrefix
       , use_flow_ack := FlowAck, clean_field_names := Clean,
@@ -150,6 +152,7 @@ init({GraphId, NodeId} = Idx, _Ins,
       '_parent_pid' := ParentPid, '_parent_subscriptions' := ParentSubs, passive := Passive
    } = Opts0) ->
 
+   VHost = case VHost0 of ?VHOST_DEFAULT -> VHost0; _ -> faxe_util:prefix_binary(VHost0, VHostPrefix) end,
 %%   lager:warning("opts ~p", [Opts0]),
    Q = eval_name(Q0, Opts0, Idx),
    QName = faxe_util:prefix_binary(Q, QPrefix),
@@ -205,14 +208,14 @@ init({GraphId, NodeId} = Idx, _Ins,
 %%   lager:info("opts before: ~p",[Opts0]),
 
    Opts = Opts0#{
-      host => Host, consumer_tag => CTag,
+      host => Host, consumer_tag => CTag, vhost => VHost,
       exchange => faxe_util:prefix_binary(Ex, XPrefix),
       root_exchange => case RExchange of undefined -> undefined; _ -> RExchange end,
       queue => QName, queue_type => QType,
       routing_key => faxe_util:to_rkey(RoutingKey0),
       bindings => faxe_util:to_rkey(Bindings0)
    },
-%%   lager:info("opts: ~p",[Opts]),
+   lager:info("opts: ~p",[Opts]),
 
    State = State1#state{
       opts = Opts, ack_after = AckTimeout, queue_type = QType,
@@ -236,8 +239,13 @@ check_unique_q(_, _) ->
 
 init_takeover_consumer(ParentPid, IdxParent, CTag,
     Opts = #{takeover_queue := Q0, takeover_queue_type := QType0, '_name' := Name, takeover_queue_vhost := TVHost,
-       vhost := VHost}) ->
-   TakeoverVHost = case TVHost of undefined -> VHost; _ -> TVHost end,
+       vhost := VHost, vhost_prefix := VHostPrefix}) ->
+   TakeoverVHost0 = case TVHost of undefined -> VHost; _ -> TVHost end,
+   TakeoverVHost =
+      case TakeoverVHost0 of
+         ?VHOST_DEFAULT -> TakeoverVHost0;
+         _ -> faxe_util:prefix_binary(TakeoverVHost0, VHostPrefix)
+      end,
    NewOpts = Opts#{
       %% do not use esq for takeover
       safe => false,
