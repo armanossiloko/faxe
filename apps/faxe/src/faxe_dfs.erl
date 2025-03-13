@@ -218,15 +218,15 @@ eval_options([#{name := OptName, type := OptType, default := CKey}|Opts], Acc) w
    eval_options([{OptName, OptType, CKey}|Opts], Acc);
 eval_options([{OptName, OptType, CKey}|Opts], Acc) when is_tuple(CKey) ->
 %%   lager:info("call conf_val with: ~p for: ~p with Acc: ~p", [CKey, {OptName, OptType, CKey}, Acc]),
-   OptVal = conf_val(CKey),
+   OptVal = conf_val(CKey, OptType),
    eval_options(Opts, Acc ++ [{OptName, OptType, OptVal}]);
 eval_options([Opt|Opts], Acc) ->
    eval_options(Opts, Acc ++ [Opt]).
 
-conf_val({ConfigKey, ConfigSubKey}) ->
+conf_val({ConfigKey, ConfigSubKey}, OptionType) ->
    ConfigData = application:get_env(faxe, ConfigKey, []),
-   conv_config_val(proplists:get_value(ConfigSubKey, ConfigData));
-conf_val({ConfigKey, ConfigSubKey, ConfigSubSubKey}) ->
+   conv_config_val(proplists:get_value(ConfigSubKey, ConfigData), OptionType);
+conf_val({ConfigKey, ConfigSubKey, ConfigSubSubKey}, OptionType) ->
    Value =
    case application:get_env(faxe, ConfigKey, []) of
       [] -> [];
@@ -236,16 +236,15 @@ conf_val({ConfigKey, ConfigSubKey, ConfigSubSubKey}) ->
             ConfSubData when is_list(ConfSubData) -> proplists:get_value(ConfigSubSubKey, ConfSubData)
          end
    end,
-   conv_config_val(Value).
+   conv_config_val(Value, OptionType).
 
 %% @doc we know config does not give us any binary values, but in faxe we only use
-%% binaries for strings, so we convert any string(list) val to binary
-%% at the moment this is dangerous, as we do not know exactly whether the list was meant
-%% to be a string
-conv_config_val([]) -> [];
-conv_config_val(Val) when is_list(Val) ->
-   list_to_binary(Val);
-conv_config_val(Val) -> Val.
+%% binaries for strings, so we convert any binary/string option type to binary
+conv_config_val([], binary) -> <<>>;
+conv_config_val([], string) -> <<>>;
+conv_config_val(Val, binary) -> faxe_util:to_bin(Val);
+conv_config_val(Val, string) -> faxe_util:to_bin(Val);
+conv_config_val(Val, _Type) -> Val.
 
 node_id({Name, Id}) when is_binary(Name) andalso is_integer(Id) ->
    <<Name/binary, (integer_to_binary(Id))/binary>>.

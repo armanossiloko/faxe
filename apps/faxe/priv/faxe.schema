@@ -508,6 +508,14 @@
     [{default, "q_"}, {datatype, string}]
 }.
 
+%% rabbitmq default prefix for every queue
+%% the amqp_consume node will use this to ensure this prefix is there for every queue
+%% this is mostly to make rabbitmq ha and other policies work automatically
+{mapping, "rabbitmq.queue_type", "faxe.rabbitmq.queue_type",
+    [{default, "classic"} , {datatype, string}]
+    %, {datatype, {enum,["classic", "quorum", ""]} } ]
+}.
+
 %% rabbitmq default prefix for every exchange
 %% the amqp_consume node will use this to ensure this prefix is there for every exchange
 %% this is mostly to make rabbitmq ha and other policies work automatically
@@ -515,7 +523,26 @@
     [{default, "x_"}, {datatype, string}]
 }.
 
+%% @doc ------------------------------------------------------------------------------
+%% Queue takeover
+%% -----------------------------------------------------------------------------------
+%% rabbitmq default prefix for every takeover-queue
+%% the amqp_consume node will use this to ensure this prefix is there for every queue
+%% such a prefix is often used to select policies by (the start of) the queue name
+{mapping, "rabbitmq.takeover_queue_prefix", "faxe.rabbitmq.takeover_queue_prefix",
+    [{default, "q_"}, {datatype, string}]
+}.
 
+%% type of queue for the takeover queues
+{mapping, "rabbitmq.takeover_queue_type", "faxe.rabbitmq.takeover_queue_type",
+    [{default, "classic"}, {datatype, string}]
+    %, {datatype, {enum,["classic", "quorum", ""]} } ]
+}.
+
+%% enable queue takeover
+{mapping, "rabbitmq.takeover", "faxe.rabbitmq.takeover",
+    [{default, off}, {datatype, flag}, {commented, off}]
+}.
 %% @doc -------------------------------------------------------------------------------
 %% CrateDB defaults (postgreSQL connect)
 %% -------------------------------------------------------------------------------

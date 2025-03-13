@@ -93,12 +93,13 @@ options() -> [
    {bindings, string_list, undefined},
    {qx_name, string, undefined}, %% not used currently
    {queue, any, undefined},
-   {queue_type, string, <<>>},
-   {takeover, boolean, false},
+   {queue_type, string, {rabbitmq, queue_type}},
+   {takeover, boolean, {rabbitmq, takeover}},
    {takeover_timeout, duration, <<"5m">>},
    {takeover_queue, string, undefined},
-   {takeover_queue_prefix, string, {rabbitmq, queue_prefix}},
-   {takeover_queue_type, string, <<>>},
+   {takeover_queue_prefix, string, {rabbitmq, takeover_queue_prefix}},
+   {takeover_queue_type, string, {rabbitmq, takeover_queue_type}},
+   %% defaults to "vhost"
    {takeover_queue_vhost, string, undefined},
    {queue_prefix, string, {rabbitmq, queue_prefix}},
    {consumer_tag, string, undefined},
@@ -136,7 +137,7 @@ metrics() ->
    ].
 
 init({GraphId, NodeId} = Idx, _Ins,
-   #{ host := Host0, port := Port, user := _User, pass := _Pass, vhost := _VHost, queue := Q0, queue_type := QType0,
+   #{ host := Host0, port := Port, user := _User, pass := _Pass, vhost := VHost, queue := Q0, queue_type := QType0,
       exchange := Ex0, qx_name := _QxName, prefetch := Prefetch, routing_key := RoutingKey0, bindings := Bindings0,
       dt_field := DTField, dt_format := DTFormat, ssl := UseSSL, include_topic := IncludeTopic,
       topic_as := TopicKey, ack_every := AckEvery0, ack_after := AckTimeout0, as := As, consumer_tag := CTag0,
@@ -149,10 +150,10 @@ init({GraphId, NodeId} = Idx, _Ins,
       '_parent_pid' := ParentPid, '_parent_subscriptions' := ParentSubs, passive := Passive
    } = Opts0) ->
 
-%%   lager:warning("init ~p", [Idx]),
-
+%%   lager:warning("opts ~p", [Opts0]),
    Q = eval_name(Q0, Opts0, Idx),
-   QType = binary_to_list(QType0),
+   QName = faxe_util:prefix_binary(Q, QPrefix),
+   QType = faxe_util:to_list(QType0),
    CTag = case CTag0 of undefined -> <<"c_", GraphId/binary, "_", NodeId/binary>>; _ -> CTag0 end,
    State0 = #state{
       include_topic = IncludeTopic, topic_key = TopicKey, as = As, dedup_queue = memory_queue:new(DedupSize),
@@ -169,17 +170,27 @@ init({GraphId, NodeId} = Idx, _Ins,
       true ->
          TakeoverQ1 = eval_name(TakeoverQ0, Opts0, Idx),
          TakeoverQ2 = faxe_util:prefix_binary(TakeoverQ1, TakeoverQPrefix),
+
          TakeoverTime = faxe_time:duration_to_ms(TakeoverTimeout),
          NewTOpts = Opts0#{takeover_queue => TakeoverQ2, takeover_time => TakeoverTime},
          TakeoverOpts0 = init_takeover_consumer(self(), Idx, CTag, NewTOpts),
-         %% start takeover consumer
-         State01 = State0#state{takeover_consumer_opts = TakeoverOpts0},
-         TakeoverPid = start_takeover_consumer(State01),
-         TakeoverData = memory_queue:new(DedupSize),
-         {TakeoverOpts0, State01#state{takeover_consumer_pid = TakeoverPid, takeover_data = TakeoverData}}
+         CompQ = #{queue => QName, queue_type => QType, vhost => VHost},
+         case check_unique_q(TakeoverOpts0, CompQ) of
+            true ->
+               %% start takeover consumer
+               State01 = State0#state{takeover_consumer_opts = TakeoverOpts0},
+               TakeoverPid = start_takeover_consumer(State01),
+               TakeoverData = memory_queue:new(DedupSize),
+               {TakeoverOpts0, State01#state{takeover_consumer_pid = TakeoverPid, takeover_data = TakeoverData}};
+            false ->
+               lager:warning(
+                  "cannot start takeover action, because both queues are the same ~p, will continue without takeover",
+                  [CompQ]),
+               {undefined, State0}
+         end
    end,
 
-   TakeoverQType = binary_to_list(TakeoverQType0),
+   TakeoverQType = faxe_util:to_list(TakeoverQType0),
    TakeoverQ = case is_map(TakeoverOpts) andalso is_map_key(queue, TakeoverOpts) of
                   true -> maps:get(queue, TakeoverOpts);
                   false -> undefined
@@ -192,7 +203,7 @@ init({GraphId, NodeId} = Idx, _Ins,
 
    Host = binary_to_list(Host0),
 %%   lager:info("opts before: ~p",[Opts0]),
-   QName = faxe_util:prefix_binary(Q, QPrefix),
+
    Opts = Opts0#{
       host => Host, consumer_tag => CTag,
       exchange => faxe_util:prefix_binary(Ex, XPrefix),
@@ -201,7 +212,7 @@ init({GraphId, NodeId} = Idx, _Ins,
       routing_key => faxe_util:to_rkey(RoutingKey0),
       bindings => faxe_util:to_rkey(Bindings0)
    },
-%%   lager:info("opts: ~p",[Opts]),
+   lager:info("opts: ~p",[Opts]),
 
    State = State1#state{
       opts = Opts, ack_after = AckTimeout, queue_type = QType,
@@ -217,6 +228,12 @@ init({GraphId, NodeId} = Idx, _Ins,
 
    {ok, start_consumer(NewState)}.
 
+check_unique_q(#{queue := Q, queue_type := QType, vhost := VHost}, #{queue := Q, queue_type := QType, vhost := VHost}) ->
+   false;
+check_unique_q(_, _) ->
+   true.
+
+
 init_takeover_consumer(ParentPid, IdxParent, CTag,
     Opts = #{takeover_queue := Q0, takeover_queue_type := QType0, '_name' := Name, takeover_queue_vhost := TVHost,
        vhost := VHost}) ->
@@ -228,7 +245,7 @@ init_takeover_consumer(ParentPid, IdxParent, CTag,
       use_flow_ack => false,
       %% for the takeover-consumer, the takeover options become the "normal" q opts
       queue => Q0,
-      queue_type => QType0,
+      queue_type => faxe_util:to_list(QType0),
       vhost => TakeoverVHost,
       %% cannot use queue prefix
       queue_prefix => <<>>,
