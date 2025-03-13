@@ -212,7 +212,7 @@ init({GraphId, NodeId} = Idx, _Ins,
       routing_key => faxe_util:to_rkey(RoutingKey0),
       bindings => faxe_util:to_rkey(Bindings0)
    },
-   lager:info("opts: ~p",[Opts]),
+%%   lager:info("opts: ~p",[Opts]),
 
    State = State1#state{
       opts = Opts, ack_after = AckTimeout, queue_type = QType,
@@ -547,7 +547,6 @@ consumer_config(Opts = #{vhost := VHost, queue := Q, queue_type := QType, consum
    Setup0 = SetupQ ++ SetupEx,
    Setup = [{setup, Setup0}],
    Config = Config0++Setup,
-   lager:debug("giving carrot these Configs: ~p", [Config]),
    Props = carrot_util:proplists_merge(
       maps:to_list(Opts) ++ [{ssl_opts, faxe_config:get_amqp_ssl_opts()}], Config),
    Props.
