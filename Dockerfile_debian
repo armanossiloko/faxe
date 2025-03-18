@@ -5,7 +5,7 @@ FROM registry.datahub.tgw-group.cloud/docker-hub-proxy/python:3.9.20 AS debian
 # renovate: datasource=github-tags depName=erlang/otp
 ARG OTP_VERSION=25.3.2.18
 # renovate: datasource=github-releases depName=erlang/rebar3
-ARG REBAR3_VERSION=3.22.0
+ARG REBAR3_VERSION=3.24.0
 
 LABEL org.opencontainers.image.version=$OTP_VERSION
 
