@@ -14,7 +14,7 @@ LABEL org.opencontainers.image.version=$OTP_VERSION
 
 RUN set -xe \
 	&& OTP_DOWNLOAD_URL="https://github.com/erlang/otp/archive/OTP-${OTP_VERSION}.tar.gz" \
-	&& OTP_DOWNLOAD_SHA256="eeaa9e388fbfad90751fd75bf9207d87d7372b0a1a3266ff693c8015be91d634" \
+	&& OTP_DOWNLOAD_SHA256="6ea82a2d3907d94c7d044795708fecf0af580ec6488a0673d2085dd1ea40b499" \
 	&& CONFIGURE_ARGS="--without-wx --without-debugger --without-observer --without-et --without-javac --without-odbc --without-megaco" \
 	&& fetchDeps=' \
 		curl \
@@ -53,7 +53,7 @@ RUN set -xe \
 	  && make install ) \
 	&& find /usr/local -name examples | xargs rm -rf \
 	&& REBAR3_DOWNLOAD_URL="https://github.com/erlang/rebar3/archive/${REBAR3_VERSION}.tar.gz" \
-	&& REBAR3_DOWNLOAD_SHA256="28b256038b445ec818d2cc33000b3217f42a946219ede55ab5970503bfcf6647" \
+	&& REBAR3_DOWNLOAD_SHA256="577246bafa2eb2b2c3f1d0c157408650446884555bf87901508ce71d5cc0bd07" \
 	&& mkdir -p /usr/src/rebar3-src \
 	&& curl -fSL -o rebar3-src.tar.gz "$REBAR3_DOWNLOAD_URL" \
 	&& echo "$REBAR3_DOWNLOAD_SHA256 rebar3-src.tar.gz" | sha256sum -c - \
