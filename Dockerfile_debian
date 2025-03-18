@@ -5,7 +5,7 @@ FROM registry.datahub.tgw-group.cloud/docker-hub-proxy/python:3.9.20 AS debian
 # renovate: datasource=github-tags depName=erlang/otp
 ARG OTP_VERSION=25.3.2.2
 # renovate: datasource=github-releases depName=erlang/rebar3
-ARG REBAR3_VERSION=3.24.0
+ARG REBAR3_VERSION=3.22.0
 
 LABEL org.opencontainers.image.version=$OTP_VERSION
 
@@ -50,7 +50,7 @@ RUN set -xe \
 	  && make install ) \
 	&& find /usr/local -name examples | xargs rm -rf \
 	&& REBAR3_DOWNLOAD_URL="https://github.com/erlang/rebar3/archive/${REBAR3_VERSION}.tar.gz" \
-	&& REBAR3_DOWNLOAD_SHA256="577246bafa2eb2b2c3f1d0c157408650446884555bf87901508ce71d5cc0bd07" \
+	&& REBAR3_DOWNLOAD_SHA256="28b256038b445ec818d2cc33000b3217f42a946219ede55ab5970503bfcf6647" \
 	&& mkdir -p /usr/src/rebar3-src \
 	&& curl -fSL -o rebar3-src.tar.gz "$REBAR3_DOWNLOAD_URL" \
 	&& echo "$REBAR3_DOWNLOAD_SHA256 rebar3-src.tar.gz" | sha256sum -c - \
