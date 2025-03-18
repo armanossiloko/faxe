@@ -205,7 +205,6 @@ init({GraphId, NodeId} = Idx, _Ins,
    AckTimeout = faxe_time:duration_to_ms(AckTimeout0),
 
    Host = binary_to_list(Host0),
-%%   lager:info("opts before: ~p",[Opts0]),
 
    Opts = Opts0#{
       host => Host, consumer_tag => CTag, vhost => VHost,
@@ -215,7 +214,7 @@ init({GraphId, NodeId} = Idx, _Ins,
       routing_key => faxe_util:to_rkey(RoutingKey0),
       bindings => faxe_util:to_rkey(Bindings0)
    },
-   lager:info("opts: ~p",[Opts]),
+%%   lager:info("opts: ~p",[Opts]),
 
    State = State1#state{
       opts = Opts, ack_after = AckTimeout, queue_type = QType,

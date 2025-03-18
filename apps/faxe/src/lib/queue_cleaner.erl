@@ -34,7 +34,7 @@
 add_q({FlowId, NodeId}, {QueueName, Opts0}) ->
   Opts1 = maps:with([host, port, user, pass, vhost, ssl], Opts0),
   Opts = consumer_config(Opts1),
-  lager:info("add queue ~p for flow ~p",[{QueueName, Opts}, {FlowId, NodeId}]),
+%%  lager:info("add queue ~p for flow ~p",[{QueueName, Opts}, {FlowId, NodeId}]),
   Rec = #flow_amqp_queues{flow_id = FlowId, node_id = NodeId, queue_name = QueueName, amqp_opts = Opts},
   NewQs =
     case get_qs(FlowId) of
@@ -92,7 +92,6 @@ handle_info({amqp_disconnected, Client}, #state{clients_status = Stat, clients_r
   {noreply, State#state{clients_status = NewStat}};
 handle_info({clean, FlowId}, State = #state{}) ->
   Qs = get_qs(FlowId),
-  lager:info("queues to delete from flow ~p: ~p",[FlowId, Qs]),
   NewState = delete(Qs, State),
   faxe_db:delete_flow_amqp_queues(FlowId),
   {noreply, NewState};
