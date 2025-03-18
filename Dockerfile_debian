@@ -3,7 +3,7 @@ FROM registry.datahub.tgw-group.cloud/docker-hub-proxy/python:3.9.20 AS debian
 
 ### erlang and rebar3
 # renovate: datasource=github-tags depName=erlang/otp
-ARG OTP_VERSION=25.3.2.2
+ARG OTP_VERSION=25.3.2.18
 # renovate: datasource=github-releases depName=erlang/rebar3
 ARG REBAR3_VERSION=3.22.0
 
