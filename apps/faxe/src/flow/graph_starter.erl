@@ -82,7 +82,7 @@ code_change(_OldVsn, State = #state{}, _Extra) ->
 check_queue(Timeout) ->
   erlang:send_after(Timeout, self(), check_queue).
 
-do_start(T = #task{name = Name, definition = GraphDef},
+do_start(T = #task{name = Name, definition = GraphDef, pid = GPid},
     #task_modes{concurrency = Concurrency, permanent = Perm} = Mode) ->
   case graph_sup:new(Name, GraphDef) of
     {ok, Graph} ->
@@ -104,6 +104,12 @@ do_start(T = #task{name = Name, definition = GraphDef},
           {error, {graph_start_error, E}}
       end;
     {error, {already_started, Pid}} ->
-      lager:notice("task already started: ~p - ~p", [Name, Pid]),
+      case GPid of
+        Pid -> ok;
+        _Other ->
+          %% update the task in the DB with the "new" pid
+          faxe_db:save_task(T#task{pid = Pid})
+      end,
+      lager:notice("task already started: ~p - ~p (~p)", [Name, Pid, GPid]),
       {error, already_started}
   end.

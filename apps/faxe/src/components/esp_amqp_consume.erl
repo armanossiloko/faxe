@@ -36,6 +36,7 @@
    port,
    user,
    pass,
+   ssl = false,
    vhost,
    esq_queue,
    queue_name,
@@ -56,7 +57,7 @@
    ack_timer,
    flow_ack,
    last_dtag,
-   ssl = false,
+
    opts,
    dt_field,
    dt_format,
@@ -96,6 +97,13 @@ options() -> [
    {qx_name, string, undefined}, %% not used currently
    {queue, any, undefined},
    {queue_type, string, {rabbitmq, queue_type}},
+   %%%%%%%%%%%%%%% queue takeover options:
+%%   {takeover_host, binary, {amqp, host}},
+%%   {takeover_port, integer, {amqp, port}},
+%%   {takeover_user, string, {amqp, user}},
+%%   {takeover_pass, string, {amqp, pass}},
+%%   {takeover_ssl, is_set, false},
+
    {takeover, boolean, {rabbitmq, takeover}},
    {takeover_timeout, duration, <<"5m">>},
    {takeover_queue, string, undefined},
@@ -103,6 +111,7 @@ options() -> [
    {takeover_queue_type, string, {rabbitmq, takeover_queue_type}},
    %% defaults to "vhost"
    {takeover_queue_vhost, string, undefined},
+   %%%%%%%%%%%%%%%%
    {queue_prefix, string, {rabbitmq, queue_prefix}},
    {consumer_tag, string, undefined},
    {exchange, string, undefined},

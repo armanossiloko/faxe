@@ -27,7 +27,7 @@
    get_tasks_by_template/1
    , get_tasks_by_ids/1,
    get_tasks_by_group/1,
-   reset_tasks/0]).
+   reset_tasks/0, get_tasks_by_names/1]).
 
 -export([
    add_tags/2,
@@ -100,6 +100,8 @@ get_tasks_by_ids(IdList) ->
    mnesia:dirty_select(task, Specs).
 
 
+get_tasks_by_names(SupList) ->
+   lists:flatten([mnesia:dirty_index_read(task, Name, #task.name) || {Name, _Pid, _, _} <- SupList]).
 
 get_tasks_by_pids(PidList) ->
    lists:flatten([mnesia:dirty_index_read(task, Pid, #task.pid) || {_Name, Pid, _, _} <- PidList]).

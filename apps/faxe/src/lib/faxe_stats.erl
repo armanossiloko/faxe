@@ -96,6 +96,7 @@ handle_cast(_Request, State) ->
 handle_info(gather, State = #state{stats = Stats}) ->
    erlang:send_after(?INTERVAL, self(), gather),
    {ok, FaxeVsn} = application:get_key(faxe, vsn),
+   NodeName = faxe_util:device_name(),
    TasksAll = faxe:list_tasks(),
    TasksRunning = faxe:list_running_tasks(),
    TasksTemp = faxe:list_temporary_tasks(),
@@ -114,7 +115,8 @@ handle_info(gather, State = #state{stats = Stats}) ->
       <<"running_tasks">> => length(TasksRunning),
       <<"running_temp_tasks">> => length(TasksTemp),
       <<"permanent_tasks">> => length(TasksPermanent),
-      <<"registered_templates">> => length(TemplatesAll)
+      <<"registered_templates">> => length(TemplatesAll),
+      <<"device">> => NodeName
    },
    {noreply, State#state{stats = maps:merge(Stats, S)}};
 handle_info(_Info, State) ->
