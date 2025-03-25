@@ -749,6 +749,13 @@
     [{default, ""}, {datatype, string}, {commented, "example.com"}]
 }.
 
+
+%% @doc default base topic for mqtt handlers
+{mapping, "handler.mqtt.base_topic", "faxe.handler.mqtt.base_topic",
+    [{default, "sys/faxe/default"}, {datatype, string}, {commented, "sys/faxe"}]
+}.
+
+
 %% @doc
 %% ----------------------- METRICS ------------------------------
 %%
@@ -770,9 +777,18 @@
 %% @doc metrics handler mqtt base topic
 %% The mqtt handler will prefix its topic with this value,
 %% note that it must be a valid mqtt topic string.
+%% @see handler.mqtt.base_topic
 {mapping, "metrics.handler.mqtt.base_topic", "faxe.metrics.handler.mqtt.base_topic",
-    [{default, "sys/faxe"}, {datatype, string}, {commented, "sys/faxe"}]
+    [{default, ""}, {datatype, string}, {commented, ""}]
 }.
+
+{translation, "faxe.metrics.handler.mqtt.base_topic",
+    fun(Conf) ->
+        case cuttlefish:conf_get("metrics.handler.mqtt.base_topic", Conf, []) of
+            [] -> cuttlefish:conf_get("handler.mqtt.base_topic", Conf);
+            BaseTopic -> BaseTopic
+        end
+    end}.
 
 %% @doc flow-metrics publish interval
 %% Interval at which flow-metrics get publish to the handler
@@ -803,8 +819,16 @@
 }.
 %% @doc connection status handler mqtt base topic
 {mapping, "conn_status.handler.mqtt.base_topic", "faxe.conn_status.handler.mqtt.base_topic",
-    [{default, "sys/faxe"}, {datatype, string}, {commented, "sys/faxe"}]
+    [{default, ""}, {datatype, string}, {commented, ""}]
 }.
+
+{translation, "faxe.conn_status.handler.mqtt.base_topic",
+    fun(Conf) ->
+        case cuttlefish:conf_get("conn_status.handler.mqtt.base_topic", Conf, []) of
+            [] -> cuttlefish:conf_get("handler.mqtt.base_topic", Conf);
+            BaseTopic -> BaseTopic
+        end
+    end}.
 
 %% @doc ----------------------- DEBUG AND TRACE --------------------------
 %%
@@ -826,8 +850,16 @@
 }.
 %% @doc debug_trace handler mqtt base topic
 {mapping, "debug.handler.mqtt.base_topic", "faxe.debug.handler.mqtt.base_topic",
-    [{default, "sys/faxe"}, {datatype, string}, {commented, "sys/faxe"}]
+    [{default, ""}, {datatype, string}, {commented, ""}]
 }.
+
+{translation, "faxe.debug.handler.mqtt.base_topic",
+    fun(Conf) ->
+        case cuttlefish:conf_get("debug.handler.mqtt.base_topic", Conf, []) of
+            [] -> cuttlefish:conf_get("handler.mqtt.base_topic", Conf);
+            BaseTopic -> BaseTopic
+        end
+    end}.
 
 %% @doc time debug and node-metric messages will be published to the configured endpoints
 {mapping, "debug.time", "faxe.debug_time",
@@ -855,9 +887,16 @@
 }.
 %% @doc flow_changed handler mqtt base topic
 {mapping, "flow_changed.handler.mqtt.base_topic", "faxe.flow_changed.handler.mqtt.base_topic",
-    [{default, "sys/faxe"}, {datatype, string}, {commented, "sys/faxe"}]
+    [{default, ""}, {datatype, string}, {commented, ""}]
 }.
 
+{translation, "faxe.flow_changed.handler.mqtt.base_topic",
+    fun(Conf) ->
+        case cuttlefish:conf_get("flow_changed.handler.mqtt.base_topic", Conf, []) of
+            [] -> cuttlefish:conf_get("handler.mqtt.base_topic", Conf);
+            BaseTopic -> BaseTopic
+        end
+    end}.
 
 %% @doc ----------------------- FLOW HEALTH STATUS (observer) --------------------------
 %%
@@ -894,7 +933,13 @@
 }.
 %% @doc flow_health handler mqtt base topic
 {mapping, "flow_health.handler.mqtt.base_topic", "faxe.flow_health.handler.mqtt.base_topic",
-    [{default, "sys/faxe"}, {datatype, string}, {commented, "sys/faxe"}]
+    [{default, ""}, {datatype, string}, {commented, ""}]
 }.
 
-
+{translation, "faxe.flow_health.handler.mqtt.base_topic",
+    fun(Conf) ->
+        case cuttlefish:conf_get("flow_health.handler.mqtt.base_topic", Conf, []) of
+            [] -> cuttlefish:conf_get("handler.mqtt.base_topic", Conf);
+            BaseTopic -> BaseTopic
+        end
+    end}.
