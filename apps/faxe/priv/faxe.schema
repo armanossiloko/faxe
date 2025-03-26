@@ -750,9 +750,9 @@
 }.
 
 
-%% @doc default base topic for mqtt handlers
+%% @doc default base topic for all mqtt handlers
 {mapping, "handler.mqtt.base_topic", "faxe.handler.mqtt.base_topic",
-    [{default, "sys/faxe/default"}, {datatype, string}, {commented, "sys/faxe"}]
+    [{default, "sys/faxe/default"}, {datatype, string}]
 }.
 
 
