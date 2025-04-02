@@ -445,7 +445,6 @@ build_node_subscriptions(Graph, Node, Nodes, FlowMode) ->
 
 -spec start_async(list({binary(), atom(), pid()}), list(), push|pull, binary()) -> ok.
 start_async(Nodes0, Subscriptions, RunMode, Id) ->
-   timer:sleep(10*1000),
    %% start the nodes with subscriptions
    %% do we have mem nodes present ? then sync start them first
    {Mems, Others} = lists:partition(fun(#node{component = Comp}) -> Comp =:= esp_mem end, Nodes0),
