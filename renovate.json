@@ -1,6 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "ignorePaths": ["Dockerfile_azedge", "Dockerfile.intel-nuc", "Dockerfile.revpi-core-3"],
+  "Reviewers": [ "miae@tgw-group.com" ],
   "customManagers": [
     {
       "description": "Match versions in rebar.config",
