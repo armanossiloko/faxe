@@ -53,16 +53,28 @@ handle_info(check_queue, State = #state{queue = Q, start_count = Count}) ->
     false ->
       NewQ =
       case queue:out(Q) of
-        {{value, {start_graph, Task = #task{name = _Name}, StartMode}}, Q1} ->
-          do_start(Task, StartMode),
-%%          df_graph:start_graph(Graph, StartMode),
-          Q1;
+        {{value, {start_graph, Task = #task{name = _Name}, StartMode} = SReq}, Q1} ->
+          case do_start(Task, StartMode) of
+            {ok, GraphPid} ->
+              faxe_db:save_task(
+                Task#task{pid = GraphPid,
+                  last_start = faxe_time:now_date(),
+                  permanent = StartMode#task_modes.permanent,
+                  is_running = true}),
+              Q1;
+            {error, timeout} ->
+              %% requeue
+              queue:in(SReq, Q1);
+            {error, _Other} ->
+              faxe_db:save_task(Task#task{pid = undefined, is_running = false}),
+              %% nope
+              Q1
+          end;
         _ ->
           Q
       end,
       State#state{queue = NewQ, timer = check_queue(?START_WAIT_TIME), start_count = Count+1}
   end,
-%%  lager:notice("started ~p flows so far",[NewState#state.start_count]),
   {noreply, NewState};
 handle_info({start_graph, _Task = #task{}, _StartMode = #task_modes{}} = Req, State = #state{queue = Q}) ->
   NewQ = queue:in(Req, Q),
@@ -83,12 +95,11 @@ check_queue(Timeout) ->
   erlang:send_after(Timeout, self(), check_queue).
 
 do_start(T = #task{name = Name, definition = GraphDef, pid = GPid},
-    #task_modes{concurrency = Concurrency, permanent = Perm} = Mode) ->
+    #task_modes{concurrency = Concurrency} = Mode) ->
   case graph_sup:new(Name, GraphDef) of
     {ok, Graph} ->
       try df_graph:start_graph(Graph, Mode) of
         _ ->
-          faxe_db:save_task(T#task{pid = Graph, last_start = faxe_time:now_date(), permanent = Perm}),
           Res =
             case Concurrency of
               1 -> {ok, Graph};
@@ -100,16 +111,16 @@ do_start(T = #task{name = Name, definition = GraphDef, pid = GPid},
           Res
       catch
         _:_ = E ->
-          lager:error("graph_start_error ~p: ~p", [Name, E]),
-          {error, {graph_start_error, E}}
+          case E of
+            {timeout, What} ->
+              lager:warning("graph_start_error ~p: timeout ~p", [Name, What]),
+              {error, timeout};
+            _Other ->
+              lager:error("graph_start_error ~p: ~p", [Name, E]),
+              {error, {graph_start_error, E}}
+          end
       end;
     {error, {already_started, Pid}} ->
-      case GPid of
-        Pid -> ok;
-        _Other ->
-          %% update the task in the DB with the "new" pid
-          faxe_db:save_task(T#task{pid = Pid})
-      end,
       lager:notice("task already started: ~p - ~p (~p)", [Name, Pid, GPid]),
-      {error, already_started}
+      {ok, Pid}
   end.

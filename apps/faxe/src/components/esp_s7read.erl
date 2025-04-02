@@ -57,7 +57,8 @@
   port_data,
   address_offset,
   optimized = false :: true|false,
-  reader :: atom()
+  reader :: atom(),
+  translated_addresses
 }).
 
 options() -> [
@@ -153,7 +154,6 @@ init({_, _NId}=NodeId, _Ins,
   {As, Addresses} = retrieve_ads(Opts),
   As1 = translate_as(As, As_Prefix),
   Addresses1 = translate_vars(Addresses, Vars_Prefix),
-  Parsed = parse_addresses(Addresses1, Offset),
 
   State = #state{
     ip = Ip,
@@ -169,25 +169,15 @@ init({_, _NId}=NodeId, _Ins,
     merge_field = MergeField,
     address_offset = Offset,
     optimized = Optimized,
+    translated_addresses = Addresses1,
     reader = case Native of true -> s7reader_native; false -> s7reader end
   },
 %%  lager:notice("State: ~p",[lager:pr(State, ?MODULE)]),
 %%  %% connection
   connection_registry:reg(NodeId, Ip, Port, <<"s7">>),
   connection_registry:connecting(),
-
-  {ok, all, init2(Parsed, State)}.
-
-init2(ParsedAddresses, State=#state{optimized = true, interval = Dur, opts = Opts, as_list = As1, reader = Reader}) ->
-  Reader:register(Opts, Dur, lists:zip(As1, ParsedAddresses)),
-  State;
-init2(ParsedAddresses, State=#state{opts = Opts, as_list = As1}) ->
-  {Parts, AliasesList} = build_addresses(ParsedAddresses, As1),
-%%  lager:info("~n~p address parts: ~p ~n AliasesList: ~p",[?MODULE, Parts, AliasesList]),
-  ByteSize = bit_count(Parts)/8,
-  S7Client = setup_connection(Opts),
-  State#state{client = S7Client, vars = Parts, as = AliasesList, byte_size = ByteSize}.
-
+  erlang:send_after(0, self(), init2),
+  {ok, all, State}.
 
 retrieve_ads(#{as := undefined, vars := Vars}) ->
   split_mod2(2, Vars);
@@ -198,7 +188,7 @@ split_mod2(Div, List) when is_list(List) ->
   {_, {_As, _Ads}=Out} =
     lists:foldl(
       fun(E, {I, {As1, Add}}) ->
-        case faxe_time:mod(I, Div) of
+        case faxe_util:mod(I, Div) of
           0 -> {I+1, {As1++[E], Add}};
           _ -> {I+1, {As1, Add++[E]}}
         end
@@ -220,6 +210,17 @@ process(_Inport, Item, State = #state{optimized = true}) ->
 process(_Inport, Item, State = #state{connected = true}) ->
   % read now trigger
   handle_info(poll, State#state{port_data = Item}).
+
+handle_info(init2, State=#state{optimized = true, interval = Dur, opts = Opts, as_list = As1, reader = Reader}) ->
+  Parsed = prepare_addresses(State),
+  Reader:register(Opts, Dur, lists:zip(As1, Parsed)),
+  {ok, State};
+handle_info(init2, State=#state{opts = Opts, as_list = As1}) ->
+  Parsed = prepare_addresses(State),
+  {Parts, AliasesList} = build_addresses(Parsed, As1),
+  ByteSize = bit_count(Parts)/8,
+  S7Client = setup_connection(Opts),
+  {ok, State#state{client = S7Client, vars = Parts, as = AliasesList, byte_size = ByteSize}};
 
 handle_info({s7_connected, _Client}, State = #state{optimized = true}) ->
 %%  lager:alert("s7_connected"),
@@ -339,6 +340,9 @@ maybe_merge_emit(NewPoint, State = #state{merge_field = MField, port_data = PDat
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+prepare_addresses(#state{translated_addresses = Addresses, address_offset = Offset}) ->
+  parse_addresses(Addresses, Offset).
+
 translate_as(As, undefined) ->
   As;
 translate_as(As, Prefix) ->
