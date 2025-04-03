@@ -103,6 +103,10 @@ init([]) ->
         {queue_cleaner,
             {queue_cleaner, start_link, []},
             permanent, 5000, worker, []}
+        ,
+        {flow_deleter,
+            {flow_deleter, start_link, []},
+            permanent, 5000, worker, []}
    ],
 
 %%    Ps =

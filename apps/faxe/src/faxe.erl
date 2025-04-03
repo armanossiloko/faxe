@@ -65,7 +65,7 @@
    reset_templates/0,
    stop_all/0
 %%   , do_start_task/2
-   , get_task_node_pids/1, list_connection_status/1, eval_dfs/3]).
+   , get_task_node_pids/1, list_connection_status/1, eval_dfs/3, force_delete_task/1]).
 
 start_permanent_tasks() ->
    Tasks = faxe_db:get_permanent_tasks(),
@@ -619,33 +619,43 @@ do_stop_task(T = #task{group_leader = _Leader, group = _Group}, Permanent) ->
 delete_task(TaskId) ->
    delete_task(TaskId, false).
 -spec delete_task(binary(), true|false) -> ok | {error, not_found} | {error, task_is_running}.
-delete_task(TaskId, Force) ->
+delete_task(TaskId, true) ->
+   case faxe_db:get_task(TaskId) of
+      {error, not_found} -> {error, not_found};
+      T = #task{} -> flow_deleter:do(T), ok
+   end;
+delete_task(TaskId, false) ->
    case faxe_db:get_task(TaskId) of
       {error, not_found} -> {error, not_found};
       T = #task{} ->
          case is_flow_alive(T) of
-            {true, T1} ->
-               case Force of
-                  true ->
-                     stop_task(T1),
-                     do_delete_task(T1);
-                  false -> {error, task_is_running}
-               end;
+            {true, _T1} -> {error, task_is_running};
             {false, T2} -> do_delete_task(T2)
          end
    end.
 
-do_delete_task(#task{id = TaskId, name = TName, group = Group, group_leader = Leader}) ->
+%% called by flow_deleter process
+-spec force_delete_task(T :: #task{}) -> ok|any().
+force_delete_task(T = #task{}) ->
+   TDelete =
+   case is_flow_alive(T) of
+      {true, T1=#task{pid = GPid}} ->
+         catch df_graph:stop(GPid), T1;
+      {false, T2} -> T2
+   end,
+   do_delete_task(TDelete).
+
+do_delete_task(#task{id = TaskId, name = TName, group = _Group, group_leader = _Leader}) ->
    case faxe_db:delete_task(TaskId) of
       ok ->
-         queue_cleaner:clean(TName),
-         case Leader of
-            true ->
-               delete_task_group(Group),
-%%               flow_changed({flow, TaskId, delete}),
-               ok;
-            false -> ok
-         end;
+         queue_cleaner:clean(TName), ok;
+%%         case Leader of
+%%            true ->
+%%               delete_task_group(Group),
+%%%%               flow_changed({flow, TaskId, delete}),
+%%               ok;
+%%            false -> ok
+%%         end;
       Else -> Else
    end.
 
