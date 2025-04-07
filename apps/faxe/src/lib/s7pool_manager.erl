@@ -123,7 +123,7 @@ handle_info({ensure_pool, #{ip := Ip} = Opts, User},
   {noreply, NewState#state{pool_user = NewPUsers, users_waiting = UWaiting}};
 
 handle_info({up, Ip}, State = #state{pools_up = Up, ips_pools = _Pools, users_waiting = UWaiting}) ->
-  lager:notice("s7 pool for ip ~p is UP",[Ip]),
+%%  lager:notice("s7 pool for ip ~p is UP",[Ip]),
   case lists:member(Ip, Up) of
     true -> {noreply, State};
     false ->

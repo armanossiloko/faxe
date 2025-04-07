@@ -60,12 +60,16 @@
    task_to_graph_running/1,
    update_all/1,
    update_by_tags/2,
-   update_by_template/2, start_metrics_trace/2, stop_metrics_trace/1,
+   update_by_template/2,
+   start_metrics_trace/2, stop_metrics_trace/1,
    reset_tasks/0,
    reset_templates/0,
    stop_all/0
 %%   , do_start_task/2
-   , get_task_node_pids/1, list_connection_status/1, eval_dfs/3, force_delete_task/1]).
+   , get_task_node_pids/1,
+   list_connection_status/1,
+   eval_dfs/3,
+   force_delete_task/1]).
 
 start_permanent_tasks() ->
    Tasks = faxe_db:get_permanent_tasks(),
@@ -635,7 +639,7 @@ delete_task(TaskId, false) ->
    end.
 
 %% called by flow_deleter process
--spec force_delete_task(T :: #task{}) -> ok|any().
+-spec force_delete_task(T :: #task{}) -> ok|{error, term()}.
 force_delete_task(T = #task{}) ->
    TDelete =
    case is_flow_alive(T) of

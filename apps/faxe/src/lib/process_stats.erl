@@ -53,7 +53,11 @@ get_top_nodes(N) ->
 
 top_list(Processes, SortBy, N) ->
   AllInfo = lists:map(fun(P) -> erlang:process_info(P) end, Processes),
-  Sorted = lists:usort(fun(A, B) -> proplists:get_value(SortBy, A) > proplists:get_value(SortBy, B) end, AllInfo),
+  Sorted =
+    case length(AllInfo) > 1 of
+      true -> lists:usort(fun(A, B) -> proplists:get_value(SortBy, A) > proplists:get_value(SortBy, B) end, AllInfo);
+      false -> AllInfo
+    end,
   TopList = lists:sublist(Sorted, N),
 %%  lager:notice("TopList: ~p",[TopList]),
   F =
