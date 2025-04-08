@@ -45,7 +45,7 @@
 
 -include("faxe.hrl").
 
--record(state, {mode, task_id, task, tags, name, dfs, delete_force = false}).
+-record(state, {mode, task_id, task, tags, name, dfs, delete_force = false, del_stop_ignore = false}).
 
 init(Req, [{op, Mode}]) ->
    TId = cowboy_req:binding(task_id, Req),
@@ -82,13 +82,14 @@ allowed_methods(Req, State=#state{mode = start}) ->
 allowed_methods(Req, State=#state{mode = start_group}) ->
    {[<<"GET">>], Req, State};
 allowed_methods(Req, State=#state{mode = stop}) ->
-   {[<<"GET">>], Req, State};
+   {[<<"GET">>], Req, State#state{del_stop_ignore = is_ignored(Req)}};
 allowed_methods(Req, State=#state{mode = stop_group}) ->
    {[<<"GET">>], Req, State};
 allowed_methods(Req, State=#state{mode = delete_force}) ->
-   {[<<"DELETE">>], Req, State#state{mode = delete, delete_force = true}};
+   Ignore = is_ignored(Req),
+   {[<<"DELETE">>], Req, State#state{mode = delete, delete_force = true, del_stop_ignore = Ignore}};
 allowed_methods(Req, State=#state{mode = delete}) ->
-   {[<<"DELETE">>], Req, State};
+   {[<<"DELETE">>], Req, State#state{del_stop_ignore = is_ignored(Req)}};
 allowed_methods(Req, State=#state{mode = delete_group}) ->
    {[<<"DELETE">>], Req, State};
 allowed_methods(Req, State=#state{mode = remove_tags}) ->
@@ -231,6 +232,8 @@ resource_exists(Req = #{method := <<"POST">>}, State=#state{mode = Mode, task_id
 resource_exists(Req, State) ->
    {true, Req, State}.
 
+%%check_resource(_TId, Req, State = #state{del_stop_ignore = true}) ->
+%%   {true, Req, State};
 check_resource(TId, Req, State) ->
    {Value, NewState} =
    case TId of
@@ -262,21 +265,29 @@ do_delete(Req, State=#state{task_id = undefined}) ->
          {true, Req2, State}
    end;
 %% delete a single task
-do_delete(Req, State=#state{task_id = TaskId, delete_force = Force}) ->
+do_delete(Req, State=#state{task_id = TaskId, delete_force = Force, del_stop_ignore = Ignore}) ->
    case faxe:delete_task(TaskId, Force) of
       ok ->
-         RespMap = #{success => true, message =>
-            iolist_to_binary([<<"Task ">>, faxe_util:to_bin(TaskId), <<" successfully deleted.">>])},
-         Req2 = cowboy_req:set_resp_body(jiffy:encode(RespMap), Req),
-         {true, Req2, State};
+         delete_success(Req, State);
+      {error, not_found} when Ignore == true ->
+         delete_success(Req, State);
       {error, Error} ->
-         lager:info("Error occured when deleting flow: ~p",[Error]),
-         Req3 = cowboy_req:set_resp_body(
-            jiffy:encode(#{success => false, error => faxe_util:to_bin(Error)}), Req),
-         Req4 = cowboy_req:reply(409, Req3),
-         {stop, Req4, State}
+         delete_error(Req, Error, State)
    end.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% costum CALLBACKS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+delete_success(Req, State=#state{task_id = TaskId}) ->
+   RespMap = #{success => true, message =>
+   iolist_to_binary([<<"Task ">>, faxe_util:to_bin(TaskId), <<" successfully deleted.">>])},
+   Req2 = cowboy_req:set_resp_body(jiffy:encode(RespMap), Req),
+   {true, Req2, State}.
+
+delete_error(Req, Error, State) ->
+   Status = case Error of not_found -> 404; _ -> 409 end,
+   lager:info("Error occured when deleting flow: ~p",[Error]),
+   Req3 = cowboy_req:set_resp_body(
+      jiffy:encode(#{success => false, error => faxe_util:to_bin(Error)}), Req),
+   Req4 = cowboy_req:reply(Status, Req3),
+   {stop, Req4, State}.
 
 
 get_to_json(Req, State=#state{task = Task}) ->
@@ -391,12 +402,15 @@ start_debug_to_json(Req, State = #state{task_id = Id}) ->
          rest_helper:error(Req, State, faxe_util:to_bin(Error))
    end.
 
-stop_to_json(Req, State = #state{task_id = Id}) ->
+stop_to_json(Req, State = #state{task_id = Id, del_stop_ignore = Ignore}) ->
    case faxe:stop_task(Id, is_permanent(Req)) of
       ok ->
          rest_helper:success(Req, State);
       {error, Error} ->
-         rest_helper:error(Req, State, faxe_util:to_bin(Error))
+         case Ignore == true andalso Error == not_running of
+            true -> rest_helper:success(Req, State);
+            false -> rest_helper:error(Req, State, faxe_util:to_bin(Error))
+         end
    end.
 
 stop_group_to_json(Req, State = #state{}) ->
@@ -474,4 +488,11 @@ get_duration(Req) ->
             _ -> undefined
          end;
       undefined -> undefined
+   end.
+
+is_ignored(Req) ->
+   Qs = cowboy_req:parse_qs(Req),
+   case lists:keyfind(<<"ignore">>, 1, Qs) of
+      {_, <<"false">>} -> false;
+      _ -> true
    end.
