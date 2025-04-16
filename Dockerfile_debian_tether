@@ -13,7 +13,7 @@ ARG SYSTEM_ACCESSTOKEN
 LABEL org.opencontainers.image.version=$OTP_VERSION
 
 RUN set -xe \
-	&& OTP_DOWNLOAD_URL="https://github.com/erlang/otp/archive/OTP-${OTP_VERSION}.tar.gz" \
+	&& OTP_DOWNLOAD_URL="https://github.com/erlang/otp/releases/download/OTP-${OTP_VERSION}/otp_src_${OTP_VERSION}.tar.gz" \
 	&& OTP_DOWNLOAD_SHA256="7997a0900d149c82ae3d0f523d7dfa960ac3cd58acf0b158519c108eb5c65661" \
 	&& CONFIGURE_ARGS="--without-wx --without-debugger --without-observer --without-et --without-javac --without-odbc --without-megaco" \
 	&& fetchDeps=' \
