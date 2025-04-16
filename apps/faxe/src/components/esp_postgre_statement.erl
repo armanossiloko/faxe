@@ -30,7 +30,6 @@
 }).
 
 -define(DB_OPTIONS, #{
-   tcp_opts =>
    codecs => [
       {faxe_epgsql_codec, nil},
       {epgsql_codec_json, {jiffy, [], [return_maps]}}],
