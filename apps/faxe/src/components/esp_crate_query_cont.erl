@@ -46,6 +46,7 @@
 }).
 
 -define(DB_OPTIONS, #{
+   ssl_opts => [{verify, verify_none}],
    codecs => [
       {faxe_epgsql_codec, nil},
       {epgsql_codec_json, {jiffy, [], [return_maps]}}],
