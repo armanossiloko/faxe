@@ -86,8 +86,8 @@ process(Inport, #data_point{ts = Ts} = Point, State = #state{buffer = [], m_time
    NewList = new_timeout(M, {Ts, RowId}, TList),
    NewBuffer = [{Ts, [{RowId, [{Inport, Point}]}]}],
    {ok, State#state{buffer = NewBuffer, timers = NewList}};
-process(Inport, #data_point{ts = Ts} = Point, State = #state{buffer = Buffer, timers = TimerList,
-      m_timeout = MTimeout, tolerance = Tolerance}) ->
+process(Inport, #data_point{ts = _Ts} = Point, State = #state{buffer = _Buffer, timers = _TimerList,
+      m_timeout = _MTimeout, tolerance = _Tolerance}) ->
 
 %%   {message_queue_len, MsgQueueLength} = erlang:process_info(self(), message_queue_len),
 %%   case MsgQueueLength > 50 of
@@ -280,15 +280,15 @@ take(Key, SubKey, Bag) ->
          end
    end.
 
-fill(<<"none">>) -> false;
-fill(none) -> false;
-fill(false) -> false;
-fill(_) -> true.
+%%fill(<<"none">>) -> false;
+%%fill(none) -> false;
+%%fill(false) -> false;
+%%fill(_) -> true.
 
 is_full_row(Row, #state{row_list = RowList, row_length = _RowLen}) ->
    case RowList -- proplists:get_keys(Row) of
       [] -> true;
-      Left  -> false
+      _Left  -> false
    end.
 
 merge(M1, M2) when is_map(M1), is_map(M2) -> mapz:deep_merge(merge_fun(), #{}, [M1, M2]);

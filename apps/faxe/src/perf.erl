@@ -22,7 +22,7 @@ lambda_perf(Num, auto) ->
   lambda_perf(Num, Par);
 lambda_perf(Num, Par) ->
   Vars = ["dat.val2", "val1"],
-  Refs = [<<"Dat_val2">>, <<"Val1">>],
+%%  Refs = [<<"Dat_val2">>, <<"Val1">>],
   Lambda = " dfs_std_lib:int(Dat_val2 > 3) ",
 %%  Lambda = " dfs_std_lib:int(Dat_val2 / 1000) + math:sqrt(Val1) / 4000",
   LambdaCall = lambda_helper(Lambda, Vars),

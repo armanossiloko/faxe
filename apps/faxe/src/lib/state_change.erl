@@ -134,7 +134,7 @@ enter(State=#state_change{}, P = #data_point{ts = Ts}) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -ifdef(TEST).
-all_true(_) -> true.
+%%all_true(_) -> true.
 my_lambda() ->
   #faxe_lambda{module = ?MODULE, function = all_true}.
 basic_test() ->

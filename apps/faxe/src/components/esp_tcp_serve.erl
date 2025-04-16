@@ -47,7 +47,7 @@ metrics() ->
     {?METRIC_BYTES_SENT, meter, []}
   ].
 
-init(NodeId, _Ins, #{port := Port, packet := Packet0, format := Format, field := Field} = Opts) ->
+init(NodeId, _Ins, #{port := Port, packet := Packet0, format := Format, field := Field} = _Opts) ->
   MaxConns = 3,
   connection_registry:reg(NodeId, <<"0.0.0.0">>, Port, <<"tcp">>),
 %%  lager:info("opts: ~p",[Opts]),

@@ -149,7 +149,7 @@ start_client(State = #state{host = Host, port = Port, tls = Tls}) ->
 
 get_response(Client, Ref) ->
    case gun:await(Client, Ref) of
-      {response, fin, Status, Headers} ->
+      {response, fin, Status, _Headers} ->
          {error, {no_data, Status}};
       {response, nofin, Status, _Headers} ->
          {ok, Body} = gun:await_body(Client, Ref),

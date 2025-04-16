@@ -12,7 +12,6 @@
 -include_lib("eunit/include/eunit.hrl").
 
 %% API
--export([check_select_with_test/0]).
 
 check_select_with_test() ->
   Sql = <<"with \"task\" as (

@@ -1,5 +1,6 @@
 -module(bcd).
 -compile(export_all).
+-compile(nowarn_export_all).
 
 encode(N, Size) ->
   encode0(N, Size * 2, <<>>).

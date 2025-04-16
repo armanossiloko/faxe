@@ -67,7 +67,7 @@ handle_info({s7_connected, Worker},
   end,
   {noreply, NewState};
 handle_info({s7_disconnected, Worker},
-    State = #state{pool = Pool, waiting_cons = Waiting, opts = #{ip := Ip}, initial_size = Initial}) ->
+    State = #state{pool = Pool, waiting_cons = Waiting, opts = #{ip := _Ip}, initial_size = _Initial}) ->
   NewWaiting =
   case lists:member(Worker, Waiting) of
     true -> Waiting; %already waiting for it !

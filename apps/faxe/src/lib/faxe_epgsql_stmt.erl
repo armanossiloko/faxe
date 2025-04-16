@@ -43,7 +43,7 @@ init([{parent, Parent}, {opts, #{host := Host0, port := Port, username := User, 
 %%  Opts = #{host => Host0, port => Port, username => User, password => Pass, database => Db},
   DBOpts0 =
   case maps:get(tls, Opts, false) of
-    true -> ?DB_OPTIONS#{ssl => true};
+    true -> maps:put(ssl, true, ?DB_OPTIONS);
     _Else -> ?DB_OPTIONS
   end,
   DBOpts = maps:merge(DBOpts0, Opts),

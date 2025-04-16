@@ -177,7 +177,7 @@ handle_info({'DOWN', _Mon, process, Pid, Info}, State = #state{graph = Pid}) whe
 handle_info({'DOWN', _Mon, process, Pid, Info}, State = #state{graph = Pid}) ->
   lager:notice("flow graph pid is DOWN for flow ~p with Reason ~p, will stop now", [State#state.flow_id, Info]),
   InfoMsg = list_to_binary(io_lib:format("~p", [Info])),
-  Msg = ?MSG_CRASHED#{?FIELD_MESSAGE => InfoMsg},
+  Msg = maps:put(?FIELD_MESSAGE, InfoMsg, ?MSG_CRASHED),
   NewState = publish(jiffy:encode(Msg), State),
   {stop, normal, NewState};
 %% no connection issues, status ok
@@ -201,7 +201,7 @@ handle_info({log, Item}, State) ->
   NewState = cancel_timer(State),
   Item0 = flowdata:from_json_struct(Item),
   Msg0 = flowdata:to_mapstruct(Item0),
-  Msg = ?MSG_UNHEALTHY#{?FIELD_ERRORS => [Msg0]},
+  Msg = maps:put(?FIELD_ERRORS, [Msg0], ?MSG_UNHEALTHY),
   NewState1 = publish(jiffy:encode(Msg), NewState),
   {noreply, NewState1#state{timer_ref = start_timer(?REPORT_INTERVAL)}};
 handle_info({conn_status, Item}, State) ->
@@ -232,7 +232,7 @@ conn_status_received(State = #state{connection_issues = []}, ConnStatus = #data_
   case flowdata:field(ConnStatus, ?CONN_FIELD_CONNECTED) of
     true ->
       publish(jiffy:encode(?MSG_HEALTHY), State);
-    false -> <<"send the conn_status and add to issue list">>,
+    false -> %<<"send the conn_status and add to issue list">>,
       NewIssueList = [{make_conn_ref(ConnStatus), ConnStatus}],
       NewState = publish_conn_status(NewIssueList, State),
       NewState#state{connection_issues = NewIssueList}
@@ -291,7 +291,7 @@ send_buffer(State = #state{message_buffer = Buffer}) ->
 publish_conn_status(ConnStatusList, State) ->
   MsgList = [maps:without([?FIELD_CONN_STATUS], flowdata:to_mapstruct(Item)) ||
     {_Ref, Item} <- ConnStatusList],
-  Msg = ?MSG_UNHEALTHY#{?FIELD_CONN_STATUS => MsgList},
+  Msg = maps:put(?FIELD_CONN_STATUS, MsgList, ?MSG_UNHEALTHY),
   publish(jiffy:encode(Msg), State).
 
 

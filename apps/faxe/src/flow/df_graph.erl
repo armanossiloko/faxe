@@ -282,10 +282,10 @@ handle_info(timeout, State) ->
    ets:delete(temp_tasks, State#state.id),
    do_stop(State),
    {stop, shutdown, State};
-handle_info(collect_metrics, State = #state{nodes = Nodes, id = Id}) ->
-   [node_metrics:process_metrics(Id, N) || N <- Nodes],
-   erlang:send_after(?METRICS_INTERVAL, self(), collect_metrics),
-   {noreply, State};
+%%handle_info(collect_metrics, State = #state{nodes = Nodes, id = Id}) ->
+%%   [node_metrics:process_metrics(Id, N) || N <- Nodes],
+%%   erlang:send_after(?METRICS_INTERVAL, self(), collect_metrics),
+%%   {noreply, State};
 handle_info(stop, State=#state{}) ->
    do_stop(State),
    %gen_event:notify(dfevent_graph, {stop, Id}),

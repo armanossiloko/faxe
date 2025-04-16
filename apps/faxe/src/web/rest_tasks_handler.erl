@@ -117,7 +117,7 @@ content_types_provided(Req, State) ->
 
 from_import(Req, State=#state{}) ->
    Max = faxe_config:get_sub(http_api, max_upload_size, ?MAX_UPLOAD_LENGTH),
-   {ok, Body, Req1} = cowboy_req:read_urlencoded_body(Req, ?REQ_BODY_CONSTRAINTS#{length => Max}),
+   {ok, Body, Req1} = cowboy_req:read_urlencoded_body(Req, maps:put(length, Max, ?REQ_BODY_CONSTRAINTS)),
    TasksJson = proplists:get_value(<<"tasks">>, Body),
    case (catch jiffy:decode(TasksJson, [return_maps])) of
       TasksList when is_list(TasksList) ->

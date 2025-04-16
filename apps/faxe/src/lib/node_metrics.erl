@@ -11,12 +11,12 @@
 -include("faxe.hrl").
 %% API
 -export([
-  setup/3,
-  destroy/3,
+%%  setup/3,
+%%  destroy/3,
 
-  setup_node_metrics/2,
-  setup_node_metrics/3,
-  destroy_node_metrics/3,
+%%  setup_node_metrics/2,
+%%  setup_node_metrics/3,
+%%  destroy_node_metrics/3,
 
   process_metrics/2,
 
@@ -28,14 +28,14 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% METRICS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% setup all metrics for a flow
-setup(FlowId, NodeId, Component) ->
-  Ms = node_metrics(Component),
-  setup_node_metrics(FlowId, NodeId, Ms).
+%%setup(FlowId, NodeId, Component) ->
+%%  Ms = node_metrics(Component),
+%%  setup_node_metrics(FlowId, NodeId, Ms).
 
-destroy(FlowId, NodeId, Component) ->
-  Common = ?NODE_COMMON_METRICS,
-  AddMetrics = get_node_metrics(Component),
-  destroy_node_metrics(FlowId, NodeId, Common ++ AddMetrics).
+%%destroy(FlowId, NodeId, Component) ->
+%%  Common = ?NODE_COMMON_METRICS,
+%%  AddMetrics = get_node_metrics(Component),
+%%  destroy_node_metrics(FlowId, NodeId, Common ++ AddMetrics).
 
 node_metrics(Component) ->
   Common = ?NODE_COMMON_METRICS,
@@ -63,27 +63,27 @@ maybe_add_bytes_metrics(ComponentMetrics) ->
   end.
 
 
-setup_node_metrics(FlowId, NodeId, MetricList) when is_list(MetricList) ->
-  NId = id(FlowId, NodeId),
-  setup_node_metrics(NId, MetricList).
-setup_node_metrics(FlowNodeId, MetricList) when is_binary(FlowNodeId) ->
-  MF =
-    fun
-      ({MetricName, MetricType, Opts}) ->
-        Name0 = name(FlowNodeId, MetricName),
-        new(MetricType, Name0, Opts),
-        folsom_metrics:tag_metric(Name0, MetricName);
-      ({MetricName, MetricType, Opts, _Desc}) ->
-        Name1 = name(FlowNodeId, MetricName),
-        new(MetricType, Name1, Opts),
-        folsom_metrics:tag_metric(Name1, MetricName)
-    end,
-  lists:foreach(MF, MetricList).
+%%setup_node_metrics(FlowId, NodeId, MetricList) when is_list(MetricList) ->
+%%  NId = id(FlowId, NodeId),
+%%  setup_node_metrics(NId, MetricList).
+%%setup_node_metrics(FlowNodeId, MetricList) when is_binary(FlowNodeId) ->
+%%  MF =
+%%    fun
+%%      ({MetricName, MetricType, Opts}) ->
+%%        Name0 = name(FlowNodeId, MetricName),
+%%        new(MetricType, Name0, Opts),
+%%        folsom_metrics:tag_metric(Name0, MetricName);
+%%      ({MetricName, MetricType, Opts, _Desc}) ->
+%%        Name1 = name(FlowNodeId, MetricName),
+%%        new(MetricType, Name1, Opts),
+%%        folsom_metrics:tag_metric(Name1, MetricName)
+%%    end,
+%%  lists:foreach(MF, MetricList).
 
-destroy_node_metrics(FlowId, NodeId, MetricList) ->
-  NId = id(FlowId, NodeId),
-  MF = fun({MetricName, _MetricType, _, _}) -> folsom_metrics:delete_metric(<<NId/binary, MetricName/binary>>) end,
-  lists:foreach(MF, MetricList).
+%%destroy_node_metrics(FlowId, NodeId, MetricList) ->
+%%  NId = id(FlowId, NodeId),
+%%  MF = fun({MetricName, _MetricType, _, _}) -> folsom_metrics:delete_metric(<<NId/binary, MetricName/binary>>) end,
+%%  lists:foreach(MF, MetricList).
 
 
 
@@ -141,18 +141,20 @@ process_metrics(FlowId, #node{id = NId, pid = NPid}) ->
   metric(?METRIC_MEM_USED, MemUsage, FlowId, NId).
 
 %%% @doc setup metrics
-new(meter, Name, _) ->
-  folsom_metrics:new_meter(Name);
-new(gauge, Name, _) ->
-  folsom_metrics:new_gauge(Name);
-new(counter, Name, _) ->
-  folsom_metrics:new_counter(Name);
-new(spiral, Name, _) ->
-  folsom_metrics:new_spiral(Name);
-new(histogram, Name, []) ->
-  new(histogram, Name, [slide, 60]);
-new(histogram, Name, [Type, WinSize]) ->
-  folsom_metrics:new_histogram(Name, Type, WinSize).
+%%new(_, _, _) -> ok.
+
+%%new(meter, Name, _) ->
+%%  folsom_metrics:new_meter(Name);
+%%new(gauge, Name, _) ->
+%%  folsom_metrics:new_gauge(Name);
+%%new(counter, Name, _) ->
+%%  folsom_metrics:new_counter(Name);
+%%new(spiral, Name, _) ->
+%%  folsom_metrics:new_spiral(Name);
+%%new(histogram, Name, []) ->
+%%  new(histogram, Name, [slide, 60]);
+%%new(histogram, Name, [Type, WinSize]) ->
+%%  folsom_metrics:new_histogram(Name, Type, WinSize).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% @doc get a metric name

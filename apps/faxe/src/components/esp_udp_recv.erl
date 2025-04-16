@@ -95,7 +95,7 @@ maybe_emit(Data, State = #state{changes = true, prev_crc32 = PrevCheckSum}) ->
     false -> {ok, State}
   end.
 
-do_emit(Data, State = #state{as = As, parser = undefined}) ->
+do_emit(Data, State = #state{parser = undefined}) ->
   %% just get it from json
   DataItem = flowdata:from_json_struct(Data),
   {emit, DataItem, State};

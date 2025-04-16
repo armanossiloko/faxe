@@ -249,7 +249,7 @@ start_client(State = #state{host = Host, port = Port, tls = Tls}) ->
    connection_registry:connecting(),
    Options =
       case Tls of
-         true -> ?CONNECT_OPTS#{transport => tls};
+         true -> maps:put(transport, tls, ?CONNECT_OPTS);
          false -> ?CONNECT_OPTS
       end,
    case gun:open(Host, Port, Options) of
@@ -367,9 +367,7 @@ maybe_debug(Contents, #state{}) ->
 %% bind values to the statement
 -spec build(#data_point{}|#data_batch{}, binary(), list(), binary(), #state{}) -> {integer(), list, iodata()|undefined}.
 build(Item, Query, Fields, RemFieldsAs, #state{dedup_queue = Queue, single_resend = Resend, deduplicate = Deduplicate}) ->
-   T0 = erlang:monotonic_time(microsecond),
    {DTag, PHashes, BulkArgs0} = _Res = build_value_stmt(Item, Fields, RemFieldsAs, Queue, Resend, Deduplicate),
-   T1 = erlang:monotonic_time(microsecond),
    JsonQuery =
    case BulkArgs0 of
       [] -> undefined;

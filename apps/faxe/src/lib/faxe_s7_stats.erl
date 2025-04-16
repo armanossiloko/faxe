@@ -89,7 +89,7 @@ handle_info(gather, State = #state{}) ->
          PDULength =
             case catch s7pool_manager:get_pdu_size(Key1) of
                {ok, PDU} when is_integer(PDU) -> PDU;
-               Other -> <<"na">>
+               _Other -> <<"na">>
             end,
          #{<<"reader_stats">> => s7reader:get_stats(Ip), <<"peer">> => Ip, <<"pdu_length">> => PDULength,
             <<"num_connections">> => length(Conns1), <<"clients">> => length(S7Clients)}

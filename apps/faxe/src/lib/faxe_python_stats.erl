@@ -71,7 +71,7 @@ handle_call({get, N, SortBy}, _From, State=#state{stats = #{<<"proc_list">> := P
    ProcList1 = lists:sort(fun(#{SortBy := A}, #{SortBy := B}) -> A > B end, ProcList0),
    ProcList = lists:sublist(ProcList1, N),
    {reply, {ok, Stats#{<<"proc_list">> => ProcList}}, State};
-handle_call(_Request, _From, State=#state{stats = Stats}) ->
+handle_call(_Request, _From, State=#state{}) ->
    {reply, {ok, #{}}, State}.
 
 -spec(handle_cast(Request :: term(), State :: #state{}) ->
