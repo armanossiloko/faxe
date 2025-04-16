@@ -70,7 +70,11 @@
 -define(FAILED_RETRIES, 3).
 -define(FAILED_RETRY_INTERVAL, 1000).
 
--define(CONNECT_OPTS, #{connect_timeout => faxe_config:get_sub(crate_http, connection_timeout)}).
+-define(CONNECT_OPTS, #{
+   connect_timeout => faxe_config:get_sub(crate_http, connection_timeout),
+   transport_opts => [{verify, verify_none}]
+   }
+).
 
 -define(DEDUP_QUEUE_SIZE, 350).
 

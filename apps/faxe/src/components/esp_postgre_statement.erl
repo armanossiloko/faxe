@@ -30,6 +30,7 @@
 }).
 
 -define(DB_OPTIONS, #{
+   tcp_opts =>
    codecs => [
       {faxe_epgsql_codec, nil},
       {epgsql_codec_json, {jiffy, [], [return_maps]}}],
@@ -78,7 +79,7 @@ init(NodeId, _Inputs, #{host := Host0, port := Port, user := User, pass := Pass,
    Host = binary_to_list(Host0),
    Opts = #{
       host => Host, port => Port, username => faxe_util:to_list(User),
-      password => faxe_util:to_list(Pass), ssl => Ssl},
+      password => faxe_util:to_list(Pass), ssl => Ssl, ssl_opts => [{verify, verify_none}]},
    DBOpts = maps:merge(?DB_OPTIONS, Opts),
    RType = erlang:binary_to_existing_atom(RType0),
    Response = faxe_epgsql_response:new(<<"ts">>, RType),
