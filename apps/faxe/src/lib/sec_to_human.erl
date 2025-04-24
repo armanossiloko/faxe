@@ -1,22 +1,28 @@
 -module(sec_to_human).
 
--export([test/0, convert/1]).
+-export([test/0, convert/1, convert/2, compdurs/1]).
 
 test() ->
   lists:map(fun convert/1, [7259, 86400, 6000000]),
   ok.
 
+convert(Seconds, NumParts) ->
+  list_to_binary( compoundDuration(Seconds, NumParts)).
+%%  L1 = lists:sublist(string:split(convert(Seconds), <<",">>, all), 1, NumParts),
+%%  list_to_binary(L1).
+
 convert(Seconds) ->
-  list_to_binary( compoundDuration(Seconds)).
+  list_to_binary( compoundDuration(Seconds, 5)).
 %%  list_to_binary( io_lib:format("~s", [compoundDuration(Seconds)] )).
 
 % Compound duration of t seconds.  The argument is assumed to be positive.
-compoundDuration(Seconds) ->
+compoundDuration(Seconds, NumParts) ->
   intercalate(
     ", ",
     lists:map(
       fun({D,L}) -> io_lib:format("~p ~s",[D, L]) end,
-      compdurs(Seconds) ) ).
+      lists:sublist(compdurs(Seconds), 1, NumParts ) )
+  ).
 
 % Time broken down into non-zero durations and their labels.
 compdurs(T) ->
@@ -46,7 +52,8 @@ durLabs() ->
 
 reduceBy(N, Xs) ->
   {N_, Ys} = mapaccumr(fun quotRem/2, N, Xs),
-  [N_ | Ys].
+  R =[N_ | Ys],
+  R.
 
 quotRem(X1, X2) ->
   {X1 div X2, X1 rem X2}.

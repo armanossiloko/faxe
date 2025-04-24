@@ -74,7 +74,7 @@ handle_call(get, _From, State=#state{stats = Stats}) ->
       ets:tab2list(mqtt_pub_pools)),
    UpTime0 = erlang:element(1, erlang:statistics(wall_clock)),
    {reply, Stats#{
-      <<"uptime">> => sec_to_human:convert(round(UpTime0/1000)),
+      <<"uptime">> => sec_to_human:convert(round(UpTime0/1000), 2),
       <<"mqtt_pub_pools">> => MQTTPools,
       <<"PCRE_vsn">> => re:version()
    }, State};

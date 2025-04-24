@@ -27,7 +27,8 @@
    fill_period,
    window :: queue:queue(),
    log = [],
-   has_emitted = false
+   has_emitted = false,
+   win_start
 }).
 
 options() ->
@@ -109,7 +110,7 @@ emit(State = #state{log = Log, next_emit = NextEmit, period = Interval, window =
    NewState =
       case (Fill == false) orelse (Fill == true andalso (Emitted == true orelse HasEvicted == true)) of
          true ->
-            Batch = #data_batch{points = queue:to_list(NewWindow), start = NextEmit},
+            Batch = #data_batch{points = queue:to_list(NewWindow), start = NextEmit-Every},
 %%            lager:warning("~n  period: ~p emitting: ~p",[Interval, length(Batch#data_batch.points)]),
             dataflow:emit(Batch),
             State#state{has_emitted = true};

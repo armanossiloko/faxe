@@ -1,11 +1,22 @@
 def in =
-|value_emitter()
+|json_emitter('{"hello": "there"}')
 .every(1s)
-.type(point)
+.jitter(300ms)
+%.type(point)
 %.align()
 
 in
-|win_time()
+|win_clock()
 .every(5s)
-.period(10s)
-.fill_period()
+%.align()
+%.period(10s)
+%.fill_period()
+
+
+|aggregate()
+.fields('hello')
+.functions('count')
+
+|eval(lambda: to_iso8601("ts"), lambda: to_iso8601(now())).as('dt', 'now')
+
+|debug()

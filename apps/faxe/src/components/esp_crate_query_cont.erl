@@ -255,7 +255,7 @@ shutdown(#state{client = C, stmt = _Stmt} = S) ->
 
 connect(State = #state{db_opts = Opts, query = Q}) ->
    connection_registry:connecting(),
-   lager:info("CONNECT ~p db opts: ~p",[?MODULE, Opts]),
+%%   lager:info("CONNECT ~p db opts: ~p",[?MODULE, Opts]),
    case epgsql:connect(Opts) of
       {ok, C} ->
          connection_registry:connected(),
