@@ -31,6 +31,7 @@
    options,
    queue_file,
    queue,
+   mem_queue, %:: memory_queue:memory_queue(),
    topic,
    topic_lambda,
    topic_field,
@@ -39,7 +40,11 @@
    debug_mode = false,
    use_pool = false :: true|false,
    pool_connected = false :: true|false,
-   delete_mode = false %% if true, an empty message will be published instead of the actuall message, this leads to del topic (retaineds)
+   delete_mode = false, %% if true, an empty message will be published instead of the actual message, this leads to del topic (retained)
+   seq_num = 1,
+   add_seq_num = true,
+   add_seq_num_as = <<"_meta.seq">>,
+   seq_num_topic_depth = 4
 }).
 %% state for direct publish mode
 
@@ -56,7 +61,7 @@ options() -> [
    {retained, is_set},
    {ssl, is_set, {mqtt, ssl, enable}},
    {safe, boolean, false},
-   {max_mem_queue_size, integer, 100},
+   {max_mem_queue_size, integer, 200},
    {use_pool, boolean, {mqtt_pub_pool, enable}},
    %% experimental delete mode
    {'_delete', boolean, false}
@@ -87,11 +92,11 @@ init({_GraphId, _NodeId} = GId, _Ins, #{safe := true}=Opts) ->
    {ok, Publisher} = mqtt_publisher:start_link(NewOpts, Q),
    init_all(NewOpts, #state{publisher = Publisher, queue = Q, fn_id = GId});
 %% direct publish mode
-init(NodeId, _Ins, #{use_pool := true} = Opts) ->
+init(NodeId, _Ins, #{use_pool := true, max_mem_queue_size := MemSize} = Opts) ->
    NewOpts = prepare_opts(NodeId, Opts),
 %%   lager:info("use mqtt_pub_pool with opts: ~p",[NewOpts]),
    mqtt_pub_pool_manager:connect(NewOpts),
-   init_all(NewOpts, #state{fn_id = NodeId});
+   init_all(NewOpts, #state{fn_id = NodeId, mem_queue = memory_queue:new(MemSize)});
 init(NodeId, _Ins, #{safe := false} = Opts) ->
    NewOpts = prepare_opts(NodeId, Opts),
    {ok, Publisher} = mqtt_publisher:start_link(NewOpts),
@@ -123,14 +128,18 @@ process(_In, Item, State = #state{safe = true, queue = Q, fn_id = FNId}) ->
    dataflow:maybe_debug(item_out, 1, Item, FNId, State#state.debug_mode),
    {ok, State};
 %% using the connection pool
-process(_Inport, _Item, State = #state{use_pool = true, pool_connected = false}) ->
-%%   lager:notice("got item, but pool not up yet"),
-   {ok, State};
+process(_Inport, Item,
+    State = #state{use_pool = true, pool_connected = false, mem_queue = MemQ,
+       options = #{qos := Qos, retained := Ret}}) ->
+   {Topic, Message} = build_message(Item, State),
+   M = {publish, {Topic, Message, Qos, Ret}},
+   lager:info("mem queue msg, because pool not connected ~p",[M]),
+   NewMemQ = memory_queue:enq(M, MemQ),
+   {ok, State#state{mem_queue = NewMemQ}};
 process(_Inport, Item, State = #state{safe = false, use_pool = true, fn_id = FNId,
       options = #{host := Host, qos := Qos, retained := Ret}}) ->
-%%   {T, {ok, Publisher}} = timer:tc(mqtt_pub_pool_manager, get_connection, [Host]),
+   lager:info("got msg, pool connected, all is good"),
    {ok, Publisher} = mqtt_pub_pool_manager:get_connection(Host),
-%%   lager:info("time to get connection ~p ~p",[Publisher, T]),
    {Topic, Message} = build_message(Item, State),
    Publisher ! {publish, {Topic, Message, Qos, Ret}},
    dataflow:maybe_debug(item_out, 1, Item, FNId, State#state.debug_mode),
@@ -142,11 +151,19 @@ process(_Inport, Item, State = #state{safe = false, publisher = Publisher, fn_id
    {ok, State}.
 
 %% we only get these, when pool is used
-handle_info({mqtt_connected, _}, State) ->
-%%   lager:info("mqtt_pool connected"),
+handle_info({mqtt_connected, _}, State = #state{mem_queue = Q, options = #{host := Host}}) ->
+   lager:info("mqtt_pool CONNECTED, resend ~p",[memory_queue:to_list(Q)]),
+   {PendingList, NewQ} = memory_queue:to_list_reset(Q),
+   case PendingList of
+      [] -> ok;
+      L when is_list(L) ->
+         {ok, Publisher} = mqtt_pub_pool_manager:get_connection(Host),
+         [Publisher ! M || M <- PendingList]
+   end,
    connection_registry:connected(),
-   {ok, State#state{pool_connected = true}};
+   {ok, State#state{pool_connected = true, mem_queue = NewQ}};
 handle_info({mqtt_disconnected, _}, State) ->
+   lager:info("mqtt_pool DISCONNECTED"),
    connection_registry:disconnected(),
    {ok, State#state{pool_connected = false}};
 
@@ -162,7 +179,7 @@ build_message(Item, State = #state{fn_id = _FNId, delete_mode = true}) ->
    {get_topic(Item, State), <<>>};
 build_message(Item, State = #state{fn_id = FNId}) ->
    Json = flowdata:to_json(Item),
-   node_metrics:metric(?METRIC_BYTES_SENT, byte_size(Json), FNId),
+%%   node_metrics:metric(?METRIC_BYTES_SENT, byte_size(Json), FNId),
    node_metrics:metric(?METRIC_ITEMS_OUT, 1, FNId),
    {get_topic(Item, State), Json}.
 

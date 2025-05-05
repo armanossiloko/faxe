@@ -393,7 +393,9 @@ build_value_stmt(P = #data_point{dtag = _DTag}, Fields, RemFields, _DedupQ, true
 build_value_stmt(P = #data_point{dtag = DTag}, Fields, RemFields, DedupQ, _, _) ->
    PHash = erlang:phash2(P#data_point{dtag = undefined}),
    case memory_queue:member(PHash, DedupQ) of
-      true -> {DTag, [], []};
+      true ->
+         lager:notice("duplicate item found, will drop it - ~p",[P]),
+         {DTag, [], []};
       false -> {DTag, [PHash], build_value_stmt2(P, Fields, RemFields)}
    end.
 
