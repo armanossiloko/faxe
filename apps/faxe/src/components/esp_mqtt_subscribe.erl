@@ -174,7 +174,8 @@ connect(State = #state{host = Host, port = Port, client_id = ClientId}) ->
       {keepalive, 15},
       {reconnect, 3, 120, 10},
       {client_id, ClientId},
-      {clean_sess, false}
+      {clean_sess, false},
+      {clean_start, false}
    ],
    Opts1 = opts_auth(State, Opts0),
    Opts = opts_ssl(State, Opts1),

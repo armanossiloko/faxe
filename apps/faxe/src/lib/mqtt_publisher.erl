@@ -186,24 +186,26 @@ handle_cast(_Request, State) ->
 %% @end
 %%--------------------------------------------------------------------
 %% mem-queue only
-handle_info({mqttc, C, connected},
+%% {disconnected, ReasonCode, Properties}
+handle_info({mqttc, _C, connected},
     State=#state{queue = undefined, mem_queue = Q, host = Host, pool_caller = Caller}) ->
 
+   lager:info("mqtt client connected to ~p",[Host]),
    {PendingList, NewQ} = memory_queue:to_list_reset(Q),
-   NewState = State#state{client = C, connected = true, mem_queue = NewQ},
+   NewState = State#state{connected = true, mem_queue = NewQ},
    [publish(M, NewState) || M <- PendingList],
-   lager:debug("mqtt client connected to ~p",[Host]),
    connected(Caller),
    {noreply, NewState};
 %% internal ondisc queue is used
-handle_info({mqttc, C, connected}, State=#state{pool_caller = Caller}) ->
+handle_info({mqttc, _C, connected}, State=#state{pool_caller = Caller}) ->
    connected(Caller),
-   NewState = next(State#state{client = C, connected = true}),
+   NewState = next(State#state{connected = true}),
    {noreply, NewState};
 handle_info({mqttc, _C,  disconnected}, State=#state{client = Client, pool_caller = Caller}) ->
-   catch exit(Client, kill),
+%%   catch exit(Client, kill),
+   lager:notice("mqtt client disconnected"),
    disconnected(Caller),
-   {noreply, State#state{connected = false, client = undefined}};
+   {noreply, State#state{connected = false}};
 handle_info(deq, State=#state{}) ->
    {noreply, next(State)};
 handle_info({publish, M}, State = #state{connected = false, mem_queue = Q}) ->
@@ -221,7 +223,8 @@ handle_info({'EXIT', _Client, Reason}, State = #state{reconnector = Recon, host 
    lager:info("MQTT Client exit: ~p ~p", [Reason, {H, P}]),
    {ok, Reconnector} = faxe_backoff:execute(Recon, reconnect),
    {noreply, State#state{connected = false, client = undefined, reconnector = Reconnector}};
-handle_info(_E, S) ->
+handle_info(E, S) ->
+   lager:notice("~p got message ~p", [?MODULE, E]),
    {noreply, S}.
 
 next(State=#state{queue = Q, adapt_interval = AdaptInt}) ->
@@ -237,7 +240,9 @@ next(State=#state{queue = Q, adapt_interval = AdaptInt}) ->
    State#state{adapt_interval = NewAdaptInt}.
 
 publish({Topic, Msg, Qos, Retained}, #state{client = C}) when is_binary(Msg); is_list(Msg) ->
-   ok = emqttc:publish(C, Topic, Msg, [{qos, Qos}, {retain, Retained}]);
+%%   ok = emqttc:publish(C, Topic, Msg, [{qos, Qos}, {retain, Retained}]);
+   Res = emqtt:publish(C, Topic, #{}, Msg, [{qos, Qos}, {retain, Retained}]),
+   lager:notice("result from publish ~p",[Res]);
 publish({Topic, Msg}, State = #state{retained = Ret, qos = Qos}) ->
    publish({Topic, Msg, Qos, Ret}, State).
 
@@ -256,7 +261,7 @@ publish({Topic, Msg}, State = #state{retained = Ret, qos = Qos}) ->
     State :: #state{}) -> term()).
 terminate(_Reason, #state{client = C, pool_caller = Caller}) ->
    disconnected(Caller),
-   catch (emqttc:disconnect(C)).
+   catch (emqtt:disconnect(C)).
 
 %%--------------------------------------------------------------------
 %% @private
@@ -292,16 +297,26 @@ do_connect(#state{host = Host, port = Port, client_id = ClientId, pool_caller = 
       true -> ok;
       false -> connection_registry:connecting()
    end,
-   Opts0 = [{host, Host}, {port, Port}, {keepalive, 30}, {client_id, ClientId}],
+   S = self(),
+   MsgHandler = #{
+     connected => fun(Props) -> S ! {mqttc, Props, connected} end,
+      disconnected => fun(Reason) -> S ! {mqttc, Reason, disconnected} end
+   },
+   Opts0 = [{host, Host}, {port, Port}, {keepalive, 30}, {client_id, ClientId},
+      {reconnect, infinity}, {reconnect_timeout, 1}, {owner, self()}
+      , {msg_handler, MsgHandler}
+   ],
    Opts1 = opts_auth(State, Opts0),
    Opts = opts_ssl(State, Opts1),
-%%   lager:notice("connect to mqtt broker with: ~p",[Opts]),
-   {ok, _Client} = emqttc:start_link(Opts),
-   State.
+%%   lager:notice("start mqtt client with: ~p",[Opts]),
+   {ok, Client} = emqtt:start_link(Opts),
+   {ok, Props} = emqtt:connect(Client),
+   lager:notice("connect to mqtt broker gives: ~p",[Client]),
+   State#state{client = Client}.
 
 opts_auth(#state{user = <<>>}, Opts) -> Opts;
 opts_auth(#state{user = undefined}, Opts) -> Opts;
 opts_auth(#state{user = User, pass = Pass}, Opts) -> [{username, User},{password, Pass}] ++ Opts.
 
 opts_ssl(#state{ssl = false}, Opts) -> Opts;
-opts_ssl(#state{ssl = true, ssl_opts = SslOpts}, Opts) -> [{ssl, SslOpts}] ++ Opts.
+opts_ssl(#state{ssl = true, ssl_opts = SslOpts}, Opts) -> [{ssl, true}, {ssl_opts, SslOpts}] ++ Opts.

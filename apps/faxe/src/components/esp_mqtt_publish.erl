@@ -157,6 +157,7 @@ handle_info({mqtt_connected, _}, State = #state{mem_queue = Q, options = #{host 
    case PendingList of
       [] -> ok;
       L when is_list(L) ->
+         lager:info(ets:tab2list(mqtt_pub_pools)),
          {ok, Publisher} = mqtt_pub_pool_manager:get_connection(Host),
          [Publisher ! M || M <- PendingList]
    end,
