@@ -1,8 +1,9 @@
 def default_map =
-    '{"1":"p/data/some/test/number1", "2":"p/data/some/test/number2", "3":"p/data/some/test/number3"}'
+    '{"1":"tgw/data/some/test/number1", "2":"tgw/data/some/test/number2", "3":"tgw/data/some/test/number3",
+    "4":"tgw/data/some/test/number4"}'
 def payload =
 |json_emitter()
-.every(3s)
+.every(100ms)
 .json(
     '{"no": 1, "val": "10"}',
     '{"no": 2, "val": "20"}',
@@ -14,7 +15,7 @@ def payload =
 
 |eval(
     lambda: map_get(string("data.no"), default_map),
-    lambda: if(undefined("topic"), 'p/data/some/test/default', "topic")
+    lambda: if(undefined("topic"), 'tgw/data/some/test/default', "topic")
     )
 .as(
     'topic',
@@ -24,3 +25,4 @@ def payload =
 
 |mqtt_publish()
 .topic_field('topic')
+.use_pool(true)

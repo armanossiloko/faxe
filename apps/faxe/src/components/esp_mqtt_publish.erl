@@ -44,7 +44,8 @@
    seq_num = 1,
    add_seq_num = true,
    add_seq_num_as = <<"_meta.seq">>,
-   seq_num_topic_depth = 4
+   seq_num_topic_depth = 5,
+   meta_fields = #{}
 }).
 %% state for direct publish mode
 
@@ -61,7 +62,7 @@ options() -> [
    {retained, is_set},
    {ssl, is_set, {mqtt, ssl, enable}},
    {safe, boolean, false},
-   {max_mem_queue_size, integer, 200},
+   {max_mem_queue_size, integer, 300},
    {use_pool, boolean, {mqtt_pub_pool, enable}},
    %% experimental delete mode
    {'_delete', boolean, false}
@@ -104,16 +105,18 @@ init(NodeId, _Ins, #{safe := false} = Opts) ->
 
 init_all(
     #{safe := Safe, topic := Topic, topic_lambda := LTopic, topic_field := TField,
-       use_pool := Pool, host := Host, port := Port, '_delete' := Delete} = Opts, State = #state{fn_id = NId}) ->
+       use_pool := Pool, host := Host, port := Port, '_delete' := Delete} = Opts,
+    State = #state{fn_id = {FlowId, NodeId} =NId}) ->
    %% when using the connection pool, we have to take care of the connection_registry ourselves
    case Pool of
       true -> connection_registry:reg(NId, Host, Port, <<"mqtt">>);
       false -> ok
    end,
+   Meta = #{<<"flowid">> => FlowId, <<"nodeid">> => NodeId, <<"device">> => faxe_util:device_name()},
    {ok, all,
       State#state{
          options = Opts, safe = Safe, topic = Topic, topic_lambda = LTopic, topic_field = TField, use_pool = Pool,
-         delete_mode = Delete}
+         delete_mode = Delete, meta_fields = Meta}
    }.
 
 prepare_opts({GId, NId}=GNId, Opts0 = #{client_id := CId, host := Host0, '_delete' := DelMode, retained := Ret}) ->
@@ -138,9 +141,8 @@ process(_Inport, Item,
    {ok, State#state{mem_queue = NewMemQ}};
 process(_Inport, Item, State = #state{safe = false, use_pool = true, fn_id = FNId,
       options = #{host := Host, qos := Qos, retained := Ret}}) ->
-   lager:info("got msg, pool connected, all is good"),
-   {ok, Publisher} = mqtt_pub_pool_manager:get_connection(Host),
    {Topic, Message} = build_message(Item, State),
+   {ok, Publisher} = mqtt_pub_pool_manager:get_connection(Host),
    Publisher ! {publish, {Topic, Message, Qos, Ret}},
    dataflow:maybe_debug(item_out, 1, Item, FNId, State#state.debug_mode),
    {ok, State};
@@ -152,18 +154,19 @@ process(_Inport, Item, State = #state{safe = false, publisher = Publisher, fn_id
 
 %% we only get these, when pool is used
 handle_info({mqtt_connected, _}, State = #state{mem_queue = Q, options = #{host := Host}}) ->
-   lager:info("mqtt_pool CONNECTED, resend ~p",[memory_queue:to_list(Q)]),
+
    {PendingList, NewQ} = memory_queue:to_list_reset(Q),
    case PendingList of
       [] -> ok;
       L when is_list(L) ->
+         lager:warning("~p RESEND ~p",[?MODULE, length(L)]),
          {ok, Publisher} = mqtt_pub_pool_manager:get_connection(Host),
          [Publisher ! M || M <- PendingList]
    end,
    connection_registry:connected(),
    {ok, State#state{pool_connected = true, mem_queue = NewQ}};
 handle_info({mqtt_disconnected, _}, State) ->
-   lager:info("mqtt_pool DISCONNECTED"),
+   lager:info("~p mqtt_pool DISCONNECTED", [?MODULE]),
    connection_registry:disconnected(),
    {ok, State#state{pool_connected = false}};
 
@@ -178,11 +181,24 @@ shutdown(#state{publisher = P}) ->
 build_message(Item, State = #state{fn_id = _FNId, delete_mode = true}) ->
    {get_topic(Item, State), <<>>};
 build_message(Item, State = #state{fn_id = FNId}) ->
-   Json = flowdata:to_json(Item),
+   Topic = get_topic(Item, State),
+   Item1 = maybe_add_meta(Item, Topic, State),
+   Json = flowdata:to_json(Item1),
 %%   node_metrics:metric(?METRIC_BYTES_SENT, byte_size(Json), FNId),
    node_metrics:metric(?METRIC_ITEMS_OUT, 1, FNId),
-   {get_topic(Item, State), Json}.
+   {Topic, Json}.
 
+
+maybe_add_meta(Item = #data_point{fields = Fields}, Topic,
+    #state{add_seq_num = true, seq_num_topic_depth = Depth, meta_fields = Meta0}) ->
+   MetaTopic = faxe_util:subtopic(Topic, Depth),
+   Threshold = 900, Pos = 2, Inc = 1, SetValue = 1,
+   Seq = ets:update_counter(mqtt_seq_cnt, MetaTopic, {Pos, Inc, Threshold, SetValue}, {MetaTopic, 0}),
+%%   lager:info("seq ~p",[Seq]),
+   NewFields = Fields#{<<"_meta">> => Meta0#{<<"seq">> => Seq, <<"topic">> => MetaTopic}},
+   Item#data_point{fields = NewFields};
+maybe_add_meta(Item , _T, _State) ->
+   Item.
 
 get_topic(_Item, # state{topic_lambda = undefined, topic_field = undefined, topic = Topic}) ->
    Topic;

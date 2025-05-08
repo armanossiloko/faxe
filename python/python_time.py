@@ -1,4 +1,5 @@
 from faxe import Faxe, Point, Batch
+import sys
 
 
 class Python_time(Faxe):
@@ -7,6 +8,8 @@ class Python_time(Faxe):
     #     self.log('handle_batch is implemented ;)')
 
     def handle_point(self, point_data):
+        print(sys.version)
+
         # add the field python.time with the current timestamp
         now = Faxe.now()
         Point.value(point_data, 'python.time', now)

@@ -187,23 +187,29 @@ handle_cast(_Request, State) ->
 %%--------------------------------------------------------------------
 %% mem-queue only
 handle_info({mqttc, C, connected},
-    State=#state{queue = undefined, mem_queue = Q, host = Host, pool_caller = Caller}) ->
+    State=#state{queue = undefined, mem_queue = Q, pool_caller = Caller}) ->
 
+   connected(Caller),
    {PendingList, NewQ} = memory_queue:to_list_reset(Q),
    NewState = State#state{client = C, connected = true, mem_queue = NewQ},
-   [publish(M, NewState) || M <- PendingList],
-   lager:debug("mqtt client connected to ~p",[Host]),
-   connected(Caller),
+   case PendingList of
+      [] -> ok;
+      _ ->
+         lager:notice("~p resend ~p msgs",[?MODULE, length(PendingList)]),
+         [publish(M, NewState) || M <- PendingList]
+   end,
+
    {noreply, NewState};
 %% internal ondisc queue is used
 handle_info({mqttc, C, connected}, State=#state{pool_caller = Caller}) ->
    connected(Caller),
    NewState = next(State#state{client = C, connected = true}),
    {noreply, NewState};
-handle_info({mqttc, _C,  disconnected}, State=#state{client = Client, pool_caller = Caller}) ->
-   catch exit(Client, kill),
+handle_info({mqttc, _C,  disconnected}, State=#state{pool_caller = Caller}) ->
+%%   catch exit(Client, kill),
+   lager:warning("mqtt disconnected"),
    disconnected(Caller),
-   {noreply, State#state{connected = false, client = undefined}};
+   {noreply, State#state{connected = false}};
 handle_info(deq, State=#state{}) ->
    {noreply, next(State)};
 handle_info({publish, M}, State = #state{connected = false, mem_queue = Q}) ->
@@ -287,6 +293,7 @@ disconnected(_Caller) ->
 
 
 do_connect(#state{host = Host, port = Port, client_id = ClientId, pool_caller = Caller} = State) ->
+%%   lager:notice("~p do_connect ~p",[?MODULE, ClientId]),
    reconnect_watcher:bump(),
    case is_pid(Caller) of
       true -> ok;
