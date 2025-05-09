@@ -138,7 +138,7 @@ process(_Inport, Item,
    {ok, State#state{mem_queue = NewMemQ}};
 process(_Inport, Item, State = #state{safe = false, use_pool = true, fn_id = FNId,
       options = #{host := Host, qos := Qos, retained := Ret}}) ->
-   lager:info("got msg, pool connected, all is good"),
+   lager:alert("~p got item ~p",[?MODULE, Item]),
    {ok, Publisher} = mqtt_pub_pool_manager:get_connection(Host),
    {Topic, Message} = build_message(Item, State),
    Publisher ! {publish, {Topic, Message, Qos, Ret}},

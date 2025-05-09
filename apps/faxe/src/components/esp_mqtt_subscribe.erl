@@ -115,20 +115,19 @@ process(_In, _, State = #state{}) ->
 
 
 handle_info(connect, State) ->
-   connect(State),
-   {ok, State};
-handle_info({mqttc, C, connected}, State=#state{host = Host, reconnector = Recon}) ->
+   {ok, connect(State)};
+handle_info({mqttc, _C, connected}, State=#state{host = Host, reconnector = Recon}) ->
    connection_registry:connected(),
-   lager:debug("mqtt client connected to ~p",[Host]),
-   NewState = State#state{client = C, connected = true, reconnector = faxe_backoff:reset(Recon)},
+   lager:info("~p mqtt client connected to ~p",[?MODULE, Host]),
+   NewState = State#state{connected = true, reconnector = faxe_backoff:reset(Recon)},
    subscribe(NewState),
    {ok, NewState};
 %% @todo do we have to kill the client ?
 handle_info({mqttc, _C,  disconnected}, State=#state{client = Client}) ->
-   catch exit(Client, kill),
+%%   catch exit(Client, kill),
    connection_registry:disconnected(),
-   lager:debug("mqtt client disconnected!!"),
-   {ok, State#state{connected = false, client = undefined}};
+   lager:debug("~p mqtt client disconnected!!",[?MODULE]),
+   {ok, State#state{connected = false }};
 %% for emqtt
 handle_info({publish, #{payload := Payload, topic := Topic} }, S=#state{}) ->
    data_received(Topic, Payload, S);
@@ -146,10 +145,12 @@ handle_info({'EXIT', _C, _Reason}, State = #state{reconnector = Recon, host = H,
 handle_info(start_debug, State) -> {ok, State#state{debug_mode = true}};
 handle_info(stop_debug, State) -> {ok, State#state{debug_mode = false}};
 handle_info(_What, State) ->
+   lager:info("~p got ~p",[?MODULE, _What]),
    {ok, State}.
 
 shutdown(#state{client = C}) ->
-   catch (emqttc:disconnect(C)).
+   catch emqtt:disconnect(C),
+   catch emqtt:stop(C).
 
 data_received(Topic, Payload,
     S = #state{dt_field = DTField, dt_format = DTFormat, include_topic = AddTopic, topic_key = TopicKey, as = As}) ->
@@ -168,20 +169,31 @@ data_received(Topic, Payload,
 connect(State = #state{host = Host, port = Port, client_id = ClientId}) ->
    connection_registry:connecting(),
    reconnect_watcher:bump(),
+   S = self(),
+   MsgHandler = #{
+      publish => fun(Pack) -> S ! {publish, Pack} end,
+      connected => fun(Props) -> S ! {mqttc, Props, connected} end,
+      disconnected => fun(Reason) -> S ! {mqttc, Reason, disconnected} end
+   },
    Opts0 = [
       {host, Host},
       {port, Port},
-      {keepalive, 15},
-      {reconnect, 3, 120, 10},
-      {client_id, ClientId},
-      {clean_sess, false},
+      {reconnect, infinity}, {reconnect_timeout, 1},
+      {owner, self()}, {msg_handler, MsgHandler},
+      {keepalive, 15}, {connect_timeout, 20},
+      {clientid, ClientId},
       {clean_start, false}
    ],
    Opts1 = opts_auth(State, Opts0),
    Opts = opts_ssl(State, Opts1),
+
+   {ok, Client} = emqtt:start_link(Opts),
+   {ok, Props} = emqtt:connect(Client),
+%%   lager:notice("connect to mqtt broker gives: ~p",[Client]),
+   State#state{client = Client}.
 %%   lager:debug("connect to mqtt broker with: ~p",[Opts]),
-   {ok, _Client} = emqttc:start_link(Opts)
-.
+%%   {ok, _Client} = emqttc:start_link(Opts)
+%%.
 
 opts_auth(#state{user = <<>>}, Opts) -> Opts;
 opts_auth(#state{user = undefined}, Opts) -> Opts;
@@ -189,12 +201,12 @@ opts_auth(#state{user = User, pass = Pass}, Opts) ->
    [{username, User},{password, Pass}] ++ Opts.
 opts_ssl(#state{ssl = false}, Opts) -> Opts;
 opts_ssl(#state{ssl = true, ssl_opts = SslOpts}, Opts) ->
-   [{ssl, SslOpts}]++ Opts.
+   [{ssl, true}, {ssl_opts, SslOpts}]++ Opts.
 
 
 subscribe(#state{qos = Qos, client = C, topic = Topic, topics = undefined}) when is_binary(Topic) ->
-   ok = emqttc:subscribe(C, Topic, Qos);
+   emqtt:subscribe(C, Topic, Qos);
 subscribe(#state{qos = Qos, client = C, topics = Topics}) ->
    TQs = [{Top, Qos} || Top <- Topics],
-   ok = emqttc:subscribe(C, TQs).
+   emqtt:subscribe(C, TQs).
 

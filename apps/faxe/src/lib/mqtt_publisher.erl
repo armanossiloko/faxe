@@ -98,11 +98,15 @@ init_all(#{host := Host, port := Port} = Opts, State) ->
    reconnect_watcher:new(10000, 5, io_lib:format("~s:~p ~p",[Host, Port, ?MODULE])),
    Reconnector = faxe_backoff:new({150, 5200}),
    {ok, Reconnector1} = faxe_backoff:execute(Reconnector, reconnect),
-
-   OptsState = init_opts(Opts, State),
+   Opts1 =
+   case maps:get(client_id, Opts, nil) of
+      B when is_binary(B) -> Opts;
+      _ -> Opts#{client_id => emqtt:random_client_id()}
+   end,
+   OptsState = init_opts(Opts1, State),
 
    %% when Caller is a pid, we are in a connection pool
-   Caller = maps:get(pool_caller, Opts, undefined),
+   Caller = maps:get(pool_caller, Opts1, undefined),
    case is_pid(Caller) of
       true -> ok;
       false -> catch connection_registry:reg(NId, Host, Port, <<"mqtt">>)
@@ -130,6 +134,8 @@ init_opts([{qos, Qos} | R], State) when is_integer(Qos) ->
    init_opts(R, State#state{qos = Qos});
 init_opts([{max_mem_queue_size, QLen} | R], State) when is_integer(QLen) andalso QLen > 0 ->
    init_opts(R, State#state{max_mem_queue_len = QLen});
+init_opts([{client_id, undefined} | R], State) ->
+   init_opts(R, State#state{client_id = emqtt:random_client_id()});
 init_opts([{client_id, ClientId} | R], State) when is_binary(ClientId) ->
    init_opts(R, State#state{client_id = ClientId});
 init_opts([{ssl, false} | R], State) ->
@@ -190,7 +196,7 @@ handle_cast(_Request, State) ->
 handle_info({mqttc, _C, connected},
     State=#state{queue = undefined, mem_queue = Q, host = Host, pool_caller = Caller}) ->
 
-   lager:info("mqtt client connected to ~p",[Host]),
+   lager:notice("mqtt client connected to ~p",[Host]),
    {PendingList, NewQ} = memory_queue:to_list_reset(Q),
    NewState = State#state{connected = true, mem_queue = NewQ},
    [publish(M, NewState) || M <- PendingList],
@@ -201,7 +207,7 @@ handle_info({mqttc, _C, connected}, State=#state{pool_caller = Caller}) ->
    connected(Caller),
    NewState = next(State#state{connected = true}),
    {noreply, NewState};
-handle_info({mqttc, _C,  disconnected}, State=#state{client = Client, pool_caller = Caller}) ->
+handle_info({mqttc, _C,  disconnected}, State=#state{pool_caller = Caller}) ->
 %%   catch exit(Client, kill),
    lager:notice("mqtt client disconnected"),
    disconnected(Caller),
@@ -211,8 +217,13 @@ handle_info(deq, State=#state{}) ->
 handle_info({publish, M}, State = #state{connected = false, mem_queue = Q}) ->
    NewQ = memory_queue:enq(M, Q),
    {noreply, State#state{mem_queue = NewQ}};
-handle_info({publish, M}, State = #state{}) ->
-   publish(M, State),
+handle_info({publish, M} = Msg, State = #state{}) ->
+   case publish(M, State) of
+      {error, Reason} ->
+         lager:warning("failed to publish mqtt data: ~p, must resend || ~p",[Reason, M]),
+         erlang:send_after(200, self(), Msg);
+      _ -> ok
+   end,
    {noreply, State};
 handle_info(reconnect, State = #state{}) ->
 %%   lager:notice("(re)connect to : ~p",[State#state.host]),
@@ -240,9 +251,7 @@ next(State=#state{queue = Q, adapt_interval = AdaptInt}) ->
    State#state{adapt_interval = NewAdaptInt}.
 
 publish({Topic, Msg, Qos, Retained}, #state{client = C}) when is_binary(Msg); is_list(Msg) ->
-%%   ok = emqttc:publish(C, Topic, Msg, [{qos, Qos}, {retain, Retained}]);
-   Res = emqtt:publish(C, Topic, #{}, Msg, [{qos, Qos}, {retain, Retained}]),
-   lager:notice("result from publish ~p",[Res]);
+   emqtt:publish(C, Topic, Msg, [{qos, Qos}, {retain, Retained}]);
 publish({Topic, Msg}, State = #state{retained = Ret, qos = Qos}) ->
    publish({Topic, Msg, Qos, Ret}, State).
 
@@ -292,6 +301,7 @@ disconnected(_Caller) ->
 
 
 do_connect(#state{host = Host, port = Port, client_id = ClientId, pool_caller = Caller} = State) ->
+   lager:notice("~p:do_connect clientid ~p",[?MODULE, ClientId]),
    reconnect_watcher:bump(),
    case is_pid(Caller) of
       true -> ok;
@@ -302,16 +312,19 @@ do_connect(#state{host = Host, port = Port, client_id = ClientId, pool_caller = 
      connected => fun(Props) -> S ! {mqttc, Props, connected} end,
       disconnected => fun(Reason) -> S ! {mqttc, Reason, disconnected} end
    },
-   Opts0 = [{host, Host}, {port, Port}, {keepalive, 30}, {client_id, ClientId},
-      {reconnect, infinity}, {reconnect_timeout, 1}, {owner, self()}
-      , {msg_handler, MsgHandler}
+   Opts0 = [
+      {host, Host}, {port, Port},
+      {keepalive, 15}, {clientid, ClientId},
+      {reconnect, infinity}, {reconnect_timeout, 1},
+      {owner, self()}, {msg_handler, MsgHandler},
+      {retry_interval, 10}, {connect_timeout, 20}
    ],
    Opts1 = opts_auth(State, Opts0),
    Opts = opts_ssl(State, Opts1),
 %%   lager:notice("start mqtt client with: ~p",[Opts]),
    {ok, Client} = emqtt:start_link(Opts),
    {ok, Props} = emqtt:connect(Client),
-   lager:notice("connect to mqtt broker gives: ~p",[Client]),
+   lager:notice("connect to mqtt broker props received: ~p",[Props]),
    State#state{client = Client}.
 
 opts_auth(#state{user = <<>>}, Opts) -> Opts;
