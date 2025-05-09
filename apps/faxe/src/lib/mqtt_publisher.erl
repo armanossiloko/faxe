@@ -195,7 +195,7 @@ handle_info({mqttc, C, connected},
    case PendingList of
       [] -> ok;
       _ ->
-         lager:notice("~p resend ~p msgs",[?MODULE, length(PendingList)]),
+%%         lager:notice("~p resend ~p msgs",[?MODULE, length(PendingList)]),
          [publish(M, NewState) || M <- PendingList]
    end,
 
@@ -207,7 +207,7 @@ handle_info({mqttc, C, connected}, State=#state{pool_caller = Caller}) ->
    {noreply, NewState};
 handle_info({mqttc, _C,  disconnected}, State=#state{pool_caller = Caller}) ->
 %%   catch exit(Client, kill),
-   lager:warning("mqtt disconnected"),
+%%   lager:warning("mqtt disconnected"),
    disconnected(Caller),
    {noreply, State#state{connected = false}};
 handle_info(deq, State=#state{}) ->

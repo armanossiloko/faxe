@@ -136,7 +136,7 @@ process(_Inport, Item,
        options = #{qos := Qos, retained := Ret}}) ->
    {Topic, Message} = build_message(Item, State),
    M = {publish, {Topic, Message, Qos, Ret}},
-   lager:info("mem queue msg, because pool not connected ~p",[M]),
+%%   lager:info("mem queue msg, because pool not connected ~p",[M]),
    NewMemQ = memory_queue:enq(M, MemQ),
    {ok, State#state{mem_queue = NewMemQ}};
 process(_Inport, Item, State = #state{safe = false, use_pool = true, fn_id = FNId,
@@ -159,14 +159,14 @@ handle_info({mqtt_connected, _}, State = #state{mem_queue = Q, options = #{host 
    case PendingList of
       [] -> ok;
       L when is_list(L) ->
-         lager:warning("~p RESEND ~p",[?MODULE, length(L)]),
+%%         lager:warning("~p RESEND ~p",[?MODULE, length(L)]),
          {ok, Publisher} = mqtt_pub_pool_manager:get_connection(Host),
          [Publisher ! M || M <- PendingList]
    end,
    connection_registry:connected(),
    {ok, State#state{pool_connected = true, mem_queue = NewQ}};
 handle_info({mqtt_disconnected, _}, State) ->
-   lager:info("~p mqtt_pool DISCONNECTED", [?MODULE]),
+%%   lager:info("~p mqtt_pool DISCONNECTED", [?MODULE]),
    connection_registry:disconnected(),
    {ok, State#state{pool_connected = false}};
 

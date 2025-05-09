@@ -184,7 +184,7 @@ data_received(Topic, Payload,
    Item = flowdata:set_root(Item1, As),
    {emit, {1, Item}, State}.
 
-check_seq(Item = #data_point{fields = #{<<"_meta">> := #{<<"topic">> := Topic, <<"seq">> := Seq} = Meta }},
+check_seq(_Item = #data_point{fields = #{<<"_meta">> := #{<<"topic">> := Topic, <<"seq">> := Seq} = Meta }},
     State = #state{seq_checks = SeqChecks}) ->
 
    SeqCheck = case maps:get(Topic, SeqChecks, nil) of nil -> #seq_check{}; T -> T end,

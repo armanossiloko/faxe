@@ -110,17 +110,24 @@ handle_info(reload_tasks, State) ->
    crate_ignore_rules:init_rules(),
 
    mnesia:wait_for_tables(task, 4000),
+
    case faxe_config:get(auto_reload, false) of
       true ->
+         %% disable dfs debug
+         {ok, DfsEnv} = application:get_env(faxe, dfs),
+         application:set_env(faxe, dfs, proplists:delete(debug, DfsEnv )++[{debug, false}]),
          lager:notice("reloading all tasks ... "),
          R = faxe:update_all(true),
          case lists:filter(fun(E) -> E /= ok end, R) of
             [] -> ok;
             L -> [lager:warning("error when reloading flow ~p",[Err]) || Err <- L]
-         end;
+         end,
+         %% restore dfs debug config setting to the original value
+         application:set_env(faxe, dfs, DfsEnv);
       false ->
          ok
    end,
+
    case faxe_config:get(auto_start_permanent, false) of
       true ->
          erlang:send_after(0, self(), start_tasks);
