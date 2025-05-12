@@ -93,7 +93,7 @@ static_call(Module, Class, Function, Args) ->
       try pythra:func(P, ModClass, Function, Args) of
          B -> B
       catch
-         _:{python,'builtins.ModuleNotFoundError', Reason,_}:_Stack ->
+         _:{python,'builtins.ModuleNotFoundError', Reason, _}:_Stack ->
             Err = lists:flatten(io_lib:format("python module not found: ~s",[Reason])),
             {error, Err}
       end,
