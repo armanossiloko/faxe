@@ -19,7 +19,7 @@
    call_options/2, get_python/1,
    shutdown/1,
 %%   init/4,
-   fetch_deps/2]).
+   fetch_deps/2, get_python_vs/0]).
 
 -callback execute(tuple(), term()) -> tuple().
 
@@ -66,6 +66,15 @@ options() ->
       {cb_class, atom}
    ]
    ++ add_options().
+
+
+get_python_vs() ->
+   Path = get_path(),
+   {ok, Python} = pythra:start_link(Path),
+   Vs = pythra:get_py_version(Python),
+   [Version|_] = string:lexemes(Vs, " "),
+   pythra:stop(Python),
+   list_to_binary(Version).
 
 
 

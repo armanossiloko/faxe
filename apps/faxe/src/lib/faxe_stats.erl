@@ -30,7 +30,7 @@
 -define(INTERVAL, 20000).
 
 -record(state, {
-   stats = #{}
+   stats = #{}, python_version = undefined
 }).
 
 %%%===================================================================
@@ -93,7 +93,7 @@ handle_cast(_Request, State) ->
    {noreply, NewState :: #state{}} |
    {noreply, NewState :: #state{}, timeout() | hibernate} |
    {stop, Reason :: term(), NewState :: #state{}}).
-handle_info(gather, State = #state{stats = Stats}) ->
+handle_info(gather, State = #state{stats = Stats, python_version = PyVs}) ->
    erlang:send_after(?INTERVAL, self(), gather),
    {ok, FaxeVsn} = application:get_key(faxe, vsn),
    NodeName = faxe_util:device_name(),
@@ -105,7 +105,9 @@ handle_info(gather, State = #state{stats = Stats}) ->
    NumPaths = ets:info(field_paths, size),
    NumLambdas = ets:info(faxe_lambdas, size),
    NumPythonNodesRunning = ets:info(python_procs, size),
+   PyVersion = case PyVs of undefined -> c_python3:get_python_vs(); _ -> PyVs end,
    S = #{
+      <<"python_version">> => PyVersion,
       <<"python_nodes_running">> => NumPythonNodesRunning,
       <<"data_paths_known">> => NumPaths,
       <<"compiled_lambdas">> => NumLambdas,
