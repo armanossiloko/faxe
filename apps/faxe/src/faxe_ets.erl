@@ -80,6 +80,8 @@ init([]) ->
    ok = new_table(mqtt_pub_pools_index, set),
    ok = new_table(mqtt_pub_pool_cnt, set), %% message count for rate computation
 
+   ok = new_table(mqtt_seq_cnt, set), %% message sequence counters per topic(-part)
+
    ok = new_table(node_connections, set),
 
    ok = new_table(debug_trace_flows, set),

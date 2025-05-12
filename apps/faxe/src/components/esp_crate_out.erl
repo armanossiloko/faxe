@@ -75,10 +75,12 @@
    }
 ).
 
--define(CONNECT_TLS_OPTS, #{
-   connect_timeout => faxe_config:get_sub(crate_http, connection_timeout),
+-define(CONNECT_OPTS_TLS, ?CONNECT_OPTS#{
+   transport => tls,
    transport_opts => [{verify, verify_none}]
-   }).
+}).
+
+
 
 -define(DEDUP_QUEUE_SIZE, 350).
 
@@ -257,7 +259,7 @@ start_client(State = #state{host = Host, port = Port, tls = Tls}) ->
    connection_registry:connecting(),
    Options =
       case Tls of
-         true -> maps:put(transport, tls, ?CONNECT_OPTS);
+         true -> ?CONNECT_OPTS_TLS;
          false -> ?CONNECT_OPTS
       end,
    case gun:open(Host, Port, Options) of
