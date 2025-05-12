@@ -71,7 +71,10 @@ init([]) ->
 
 handle_call(called, _From, State=#state{stats = Stack, os = OS}) ->
 %%   lager:notice("called: ~p",[lists:reverse((Stack))]),
-   OpSysName = get_os(OS),
+   OpSysName = case catch get_os(OS) of
+                  OsVersion when is_binary(OsVersion) -> OsVersion;
+                  _ -> <<"-">>
+               end,
    {reply, Stack#{"os" => OpSysName}, State#state{os = OpSysName}};
 handle_call({store, K, D}, _From, State=#state{stats = Stack}) ->
    Val =
