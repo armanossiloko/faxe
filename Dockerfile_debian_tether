@@ -1,5 +1,5 @@
 ### Build stage 0
-FROM registry.datahub.tgw-group.cloud/docker-hub-proxy/python:3.9.20 AS debian
+FROM registry.datahub.tgw-group.cloud/docker-hub-proxy/python:3.13.3-bookworm AS debian
 
 ### erlang and rebar3
 # renovate: datasource=github-tags depName=erlang/otp
