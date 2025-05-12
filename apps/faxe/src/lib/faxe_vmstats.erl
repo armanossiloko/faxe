@@ -25,7 +25,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(state, {stats = #{}}).
+-record(state, {stats = #{}, os = undefined}).
 
 %%%===================================================================
 %%% API
@@ -69,9 +69,10 @@ start_link() ->
 init([]) ->
    {ok, #state{}}.
 
-handle_call(called, _From, State=#state{stats = Stack}) ->
+handle_call(called, _From, State=#state{stats = Stack, os = OS}) ->
 %%   lager:notice("called: ~p",[lists:reverse((Stack))]),
-   {reply, Stack, State};
+   OpSysName = get_os(OS),
+   {reply, Stack#{"os" => OpSysName}, State#state{os = OpSysName}};
 handle_call({store, K, D}, _From, State=#state{stats = Stack}) ->
    Val =
    case string:find(K, ".memory.") of
@@ -122,3 +123,15 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+get_os(undefined) ->
+   OS = hd(string:lexemes(lists:flatten(os:cmd("cat /etc/os-release")), "\n")),
+   OS1 = lists:flatten(
+      string:replace(
+         lists:flatten(string:replace(OS, "PRETTY_NAME=", "")),
+         "\"", "",
+         all)
+   ),
+   list_to_binary(OS1);
+get_os(Os) ->
+   Os.
+
