@@ -9,7 +9,7 @@ import pickle
 from erlport.erlterms import Atom, Map, List
 from erlport.erlang import cast
 
-import faxe_modulefinder
+import modulefinder
 
 
 class Faxe:
@@ -622,7 +622,7 @@ def to_bytes(ele):
 
 def get_imported_modules(module_path, spath):
     out_list = list()
-    finder = faxe_modulefinder.ModuleFinder(path=[os.path.dirname(spath)])
+    finder = modulefinder.ModuleFinder(path=[os.path.dirname(spath)])
     finder.run_script(module_path)
     for name, mod in finder.modules.items():
         filepath = str(mod.__file__)
