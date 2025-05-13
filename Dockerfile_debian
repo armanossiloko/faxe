@@ -94,6 +94,8 @@ WORKDIR faxe
 
 # faxe extensions
 ENV FAXE_EXTENSIONS="ext.config"
+# build emqtt client without quic
+ENV BUILD_WITHOUT_QUIC=true
 
 # install git, build release and cleanup deps
 RUN apt-get update && apt-get install -y --no-install-recommends gcc g++ make git-all \
