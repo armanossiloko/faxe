@@ -42,7 +42,7 @@
    pool_connected = false :: true|false,
    delete_mode = false, %% if true, an empty message will be published instead of the actual message, this leads to del topic (retained)
    seq_num = 1,
-   add_seq_num = true,
+   add_seq_num = false,
    add_seq_num_as = <<"_meta.seq">>,
    seq_num_topic_depth = 5,
    meta_fields = #{}

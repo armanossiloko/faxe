@@ -170,11 +170,11 @@ shutdown(#state{client = C}) ->
    catch (emqttc:disconnect(C)).
 
 data_received(Topic, Payload,
-    S = #state{dt_field = DTField, dt_format = DTFormat, include_topic = AddTopic, topic_key = TopicKey, as = As}) ->
-   node_metrics:metric(?METRIC_BYTES_READ, byte_size(Payload), S#state.fn_id),
-   node_metrics:metric(?METRIC_ITEMS_IN, 1, S#state.fn_id),
+    State = #state{dt_field = DTField, dt_format = DTFormat, include_topic = AddTopic, topic_key = TopicKey, as = As}) ->
+   node_metrics:metric(?METRIC_BYTES_READ, byte_size(Payload), State#state.fn_id),
+   node_metrics:metric(?METRIC_ITEMS_IN, 1, State#state.fn_id),
    Item0 = flowdata:from_json_struct(Payload, DTField, DTFormat),
-   State = check_seq(Item0, S),
+%%   State = check_seq(Item0, S),
    dataflow:maybe_debug(item_in, 1, Item0, State#state.fn_id, State#state.debug_mode),
    Item1 =
    case AddTopic of
