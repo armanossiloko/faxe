@@ -156,10 +156,11 @@ select_emit(Next, State=#state{ejson = JS, as = As, transforms = Transforms, cur
    SPoint = get_state_point(State, Json),
    Item = build(Json, Ts, As, Transforms, SPoint),
    do_emit(Next, Item, NewState).
+
 do_emit(Next, Msg, State=#state{one_shot = true, current_ts = CTs}) ->
    {emit,{1, Msg}, State#state{state_point = state_point(Msg), current_ts = CTs + Next}};
 do_emit(Next, Msg, State=#state{current_ts = CTs}) ->
-   erlang:send_after(Next, self(), emit),
+   faxe_time:send_at(CTs + Next, emit),
    {emit,{1, Msg}, State#state{state_point = state_point(Msg), current_ts = CTs + Next}}.
 
 next_index(S = #state{select = ?BATCH, ejson = _JS}) ->

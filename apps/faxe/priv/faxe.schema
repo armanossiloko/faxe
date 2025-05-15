@@ -318,6 +318,35 @@
 %%-------------------------------------------------------------------------
 %%
 
+
+%% @doc sequence check adds meta data with a 'seq' field that is a monotic increasing int and if present, can be evaluated
+%% by mqtt_subscribe node to report on missing/lost datapoints
+{mapping, "seq_check.enable", "faxe.seq_check.enable",
+    [{default, on}, {datatype, flag}]
+}.
+
+%% @doc sequence check topic depth, number of topic parts to use for meta data
+{mapping, "seq_check.topic_depth", "faxe.seq_check.topic_depth",
+    [{default, 5}, {datatype, integer}]
+}.
+
+%% @doc sequence check topic mask
+{mapping, "seq_check.topic_mask", "faxe.seq_check.topic_mask",
+    [{default, "tgw/data/{site}/Mqtt_SeqCheck/{dataformat}"}, {datatype, string}]
+}.
+
+%% @doc sequence check topic mapping
+{mapping, "seq_check.topic_mapping", "faxe.seq_check.topic_mapping",
+    [{default, "{3: \"{site}\", 4: \"{dataformat}\", 5: \"bleepp\"}"}, {datatype, string}]
+}.
+
+%% @doc sequence check - size off seq buffer window to evaluate
+{mapping, "seq_check.win_size", "faxe.seq_check.win_size",
+    [{default, 50}, {datatype, integer}]
+}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %%
 %% @doc extended logging for node crate_query_cont
 {mapping, "node.crate_query_cont.extended_log", "faxe.node.crate_query_cont.extended_log",

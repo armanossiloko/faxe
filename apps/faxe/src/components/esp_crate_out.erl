@@ -75,7 +75,7 @@
    }
 ).
 
--define(CONNECT_OPTS_TLS, ?CONNECT_OPTS#{
+-define(CONNECT_OPTS_TLS, (begin ?CONNECT_OPTS end)#{
    transport => tls,
    transport_opts => [{verify, verify_none}]
 }).

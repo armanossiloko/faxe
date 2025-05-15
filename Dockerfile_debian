@@ -1,5 +1,5 @@
 ### Build stage 0
-FROM registry.datahub.tgw-group.cloud/docker-hub-proxy/python:3.9.20 AS debian
+FROM registry.datahub.tgw-group.cloud/docker-hub-proxy/python:3.13.3-bookworm AS debian
 
 ### erlang and rebar3
 # renovate: datasource=github-tags depName=erlang/otp
@@ -94,6 +94,8 @@ WORKDIR faxe
 
 # faxe extensions
 ENV FAXE_EXTENSIONS="ext.config"
+# build emqtt client without quic
+ENV BUILD_WITHOUT_QUIC=true
 
 # install git, build release and cleanup deps
 RUN apt-get update && apt-get install -y --no-install-recommends gcc g++ make git-all \

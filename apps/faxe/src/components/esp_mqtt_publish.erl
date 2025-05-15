@@ -25,6 +25,9 @@
 %% API
 -export([init/3, process/3, options/0, handle_info/2, shutdown/1, metrics/0, check_options/0]).
 
+
+-define(META_SEQ_THRESHOLD, 200).
+
 %% state for safe-mode
 -record(state, {
    publisher,
@@ -41,10 +44,10 @@
    use_pool = false :: true|false,
    pool_connected = false :: true|false,
    delete_mode = false, %% if true, an empty message will be published instead of the actual message, this leads to del topic (retained)
-   seq_num = 1,
-   add_seq_num = true,
-   add_seq_num_as = <<"_meta.seq">>,
-   seq_num_topic_depth = 5,
+%%   seq_num = 1,
+   add_seq_check = true,
+   seq_check_topic_depth = 5,
+
    meta_fields = #{}
 }).
 %% state for direct publish mode
@@ -65,7 +68,10 @@ options() -> [
    {max_mem_queue_size, integer, 300},
    {use_pool, boolean, {mqtt_pub_pool, enable}},
    %% experimental delete mode
-   {'_delete', boolean, false}
+   {'_delete', boolean, false},
+   %% seq_check
+   {add_seq_check, boolean, {seq_check, enable}},
+   {seq_check_topic_depth, integer, {seq_check, topic_depth}}
 ].
 
 check_options() ->
@@ -105,8 +111,11 @@ init(NodeId, _Ins, #{safe := false} = Opts) ->
 
 init_all(
     #{safe := Safe, topic := Topic, topic_lambda := LTopic, topic_field := TField,
-       use_pool := Pool, host := Host, port := Port, '_delete' := Delete} = Opts,
+       use_pool := Pool, host := Host, port := Port, '_delete' := Delete,
+       add_seq_check := AddCheck, seq_check_topic_depth := SeqCheckTopicDepth} = Opts,
     State = #state{fn_id = {FlowId, NodeId} =NId}) ->
+
+   lager:notice("~p opts: ~p",[?MODULE, Opts]),
    %% when using the connection pool, we have to take care of the connection_registry ourselves
    case Pool of
       true -> connection_registry:reg(NId, Host, Port, <<"mqtt">>);
@@ -116,7 +125,7 @@ init_all(
    {ok, all,
       State#state{
          options = Opts, safe = Safe, topic = Topic, topic_lambda = LTopic, topic_field = TField, use_pool = Pool,
-         delete_mode = Delete, meta_fields = Meta}
+         delete_mode = Delete, meta_fields = Meta, seq_check_topic_depth = SeqCheckTopicDepth, add_seq_check = AddCheck}
    }.
 
 prepare_opts({GId, NId}=GNId, Opts0 = #{client_id := CId, host := Host0, '_delete' := DelMode, retained := Ret}) ->
@@ -191,9 +200,9 @@ build_message(Item, State = #state{fn_id = FNId}) ->
 
 
 maybe_add_meta(Item = #data_point{fields = Fields}, Topic,
-    #state{add_seq_num = true, seq_num_topic_depth = Depth, meta_fields = Meta0}) ->
+    #state{add_seq_check = true, seq_check_topic_depth = Depth, meta_fields = Meta0}) ->
    MetaTopic = faxe_util:subtopic(Topic, Depth),
-   Threshold = 900, Pos = 2, Inc = 1, SetValue = 1,
+   Threshold = ?META_SEQ_THRESHOLD, Pos = 2, Inc = 1, SetValue = 1,
    Seq = ets:update_counter(mqtt_seq_cnt, MetaTopic, {Pos, Inc, Threshold, SetValue}, {MetaTopic, 0}),
 %%   lager:info("seq ~p",[Seq]),
    NewFields = Fields#{<<"_meta">> => Meta0#{<<"seq">> => Seq, <<"topic">> => MetaTopic}},

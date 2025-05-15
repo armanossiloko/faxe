@@ -270,7 +270,8 @@ publish({Topic, Msg}, State = #state{retained = Ret, qos = Qos}) ->
     State :: #state{}) -> term()).
 terminate(_Reason, #state{client = C, pool_caller = Caller}) ->
    disconnected(Caller),
-   catch (emqtt:disconnect(C)).
+   emqtt:disconnect(C),
+   emqtt:stop(C).
 
 %%--------------------------------------------------------------------
 %% @private
@@ -315,7 +316,7 @@ do_connect(#state{host = Host, port = Port, client_id = ClientId, pool_caller = 
    Opts0 = [
       {host, Host}, {port, Port},
       {keepalive, 15}, {clientid, ClientId},
-      {reconnect, infinity}, {reconnect_timeout, 1},
+      {reconnect, infinity}, {reconnect_timeout, 150},
       {owner, self()}, {msg_handler, MsgHandler},
       {retry_interval, 10}, {connect_timeout, 20}
    ],
