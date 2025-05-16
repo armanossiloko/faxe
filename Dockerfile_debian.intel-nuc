@@ -41,7 +41,6 @@ RUN set -xe \
 	&& tar -xzf otp-src.tar.gz -C $ERL_TOP --strip-components=1 \
 	&& rm otp-src.tar.gz \
 	&& ( cd $ERL_TOP \
-	  && ./otp_build autoconf \
 	  && gnuArch="$(dpkg-architecture --query DEB_HOST_GNU_TYPE)" \
 	  && ./configure --build="$gnuArch" $CONFIGURE_ARGS \
 	  && make -j$(nproc) \
@@ -90,6 +89,7 @@ WORKDIR faxe
 #ARG update_list="libbsd* libzstd* libcurl3-gnutls libldap-common libopenjp2-7 python3.7  libtiff5 linux-libc-dev subversion libpq5 libldap-2.4-2 liblz4-1 libsvn1"
 #ARG remove_list=""
 
+# faxe extensions
 ENV FAXE_EXTENSIONS="ext.config"
 # build emqtt client without quic
 ENV BUILD_WITHOUT_QUIC=true
@@ -98,10 +98,10 @@ ENV BUILD_WITHOUT_QUIC=true
 RUN apt-get update && apt-get install -y --no-install-recommends gcc g++ make git-all curl jq \
 	#&& apt --only-upgrade --no-install-recommends install ${update_list} -y  \
     #&& apt remove  --auto-remove ${remove_list} -y  \
-    # tell git to use https instead of git protocol (faxe dependencies)
-    && git config --global url."https://".insteadOf git:// \
     && apt upgrade -y \
     && apt autoremove -y \
+    # tell git to use https instead of git protocol (faxe dependencies)
+    && git config --global url."https://".insteadOf git:// \
     && rebar3 as balena release \
     && apt-get purge -y --auto-remove gcc g++ make git-all \
     && rm -rf /var/lib/apt/lists/*
