@@ -1,5 +1,5 @@
 ### Build stage 0
-FROM registry.datahub.tgw-group.cloud/docker-hub-proxy/balenalib/intel-nuc-debian-python:3.10.10 AS erlang
+FROM registry.datahub.tgw-group.cloud/docker-hub-proxy/python:3.13.3-bookworm AS debian
 
 ### erlang and rebar3
 ENV OTP_VERSION="27.3.2" \
@@ -30,11 +30,12 @@ RUN set -xe \
 		make \
 		libncurses-dev \
 		unixodbc-dev \
-		libssl-dev \
 		libsctp-dev \
 	' \
 	&& apt-get install -y --no-install-recommends $runtimeDeps \
 	&& apt-get install -y --no-install-recommends $buildDeps \
+	# tell git to use https instead of git protocol (faxe dependencies)
+	&& git config --global url."https://".insteadOf git:// \
 	&& export ERL_TOP="/usr/src/otp_src_${OTP_VERSION%%@*}" \
 	&& mkdir -vp $ERL_TOP \
 	&& tar -xzf otp-src.tar.gz -C $ERL_TOP --strip-components=1 \
@@ -74,7 +75,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc g++ make \
 
 ### Build stage 1
 ARG VERSION=latest
-FROM erlang AS debian
+FROM debian AS erlang
 
 # Set working directory
 RUN mkdir -p /buildroot/rebar3/bin
@@ -90,8 +91,8 @@ WORKDIR faxe
 #ARG remove_list=""
 
 ENV FAXE_EXTENSIONS="ext.config"
-# debug for rebar3
-ENV DEBUG=1
+# build emqtt client without quic
+ENV BUILD_WITHOUT_QUIC=true
 
 # install git, build release and cleanup deps
 RUN apt-get update && apt-get install -y --no-install-recommends gcc g++ make git-all curl jq \
@@ -108,10 +109,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc g++ make gi
 RUN  [ -d scripts ] && mv scripts/* _build/balena/rel/faxe ; ls -l _build/balena/rel/faxe
 
 ### Build stage 2
-FROM debian
+FROM erlang
 
 # Install the released application
-COPY --from=debian /buildroot/faxe/_build/balena/rel/faxe /faxe
+COPY --from=erlang /buildroot/faxe/_build/balena/rel/faxe /faxe
 # cleanup
 RUN rm -rf /buildroot
 
