@@ -337,12 +337,17 @@
 
 %% @doc sequence check topic mapping
 {mapping, "seq_check.topic_mapping", "faxe.seq_check.topic_mapping",
-    [{default, "{3: \"{site}\", 4: \"{dataformat}\", 5: \"bleepp\"}"}, {datatype, string}]
+    [{default, "{\"{site}\": 3, \"{dataformat}\": 4, \"bleepp\": 5}"}, {datatype, string}]
 }.
 
 %% @doc sequence check - size off seq buffer window to evaluate
 {mapping, "seq_check.win_size", "faxe.seq_check.win_size",
     [{default, 50}, {datatype, integer}]
+}.
+
+%% @doc sequence check - seq threshold, after this the seq rolls over to 1
+{mapping, "seq_check.max_seq_num", "faxe.seq_check.max_seq_num",
+    [{default, 9999999}, {datatype, integer}]
 }.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

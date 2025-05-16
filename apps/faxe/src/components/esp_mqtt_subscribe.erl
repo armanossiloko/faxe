@@ -20,7 +20,6 @@
 -define(DEFAULT_SSL_PORT, 8883).
 
 -define(META_FIELD, <<"_meta">>).
--define(META_SEQ_THRESHOLD, 200).
 
 -record(seq_check, {
    seq_buffer = [],
@@ -29,7 +28,8 @@
    report_topic_mask = <<"tgw/data/{site}/Mqtt_Metric/{dataformat}">>,
    meta_topic_mapping = #{3 => <<"{site}">>, 4 => <<"{dataformat}">>, 5 => <<"blupp">>},
    last_seq,
-   meta_topic
+   meta_topic,
+   seq_threshold
 }).
 
 %% state for direct publish mode
@@ -124,7 +124,6 @@ init({GId, NId}=NodeId, _Ins,
    %% mqtt publish is needed, when we do the sequence check
    mqtt_pub_pool_manager:connect(maps:from_list(MqttOpts)),
    SeqCheckTemplate = seq_check_new(),
-   lager:notice("seq_check template: ~p",[lager:pr(SeqCheckTemplate, ?MODULE)]),
    {ok, State#state{mqtt_opts = MqttOpts, seq_check_template = SeqCheckTemplate}}.
 
 ssl_opts(false) ->
@@ -178,7 +177,7 @@ data_received(Topic, Payload,
    node_metrics:metric(?METRIC_ITEMS_IN, 1, S#state.fn_id),
    Item0 = flowdata:from_json_struct(Payload, DTField, DTFormat),
    {T, StateNew} = timer:tc(fun check_seq/2, [Item0, S]),
-   lager:warning("time for check_seq: ~pmy",[T]),
+   case T > 100 of true -> lager:warning("time for check_seq: ~pmy",[T]); _ -> ok end,
    dataflow:maybe_debug(item_in, 1, Item0, StateNew#state.fn_id, StateNew#state.debug_mode),
    Item1 =
    case AddTopic of
@@ -199,8 +198,7 @@ check_seq(_Item = #data_point{fields = #{?META_FIELD := #{<<"topic">> := Topic, 
    {NewList1, NewSeqCheck} =
    case length(NewList) >= MaxSeqBuffer of
       true ->
-         {EvalResult, EvalRest, NSeqCheck, Reports} = eval_seq_list(NewList, SeqCheck),
-         send_reports(Reports, State#state.host),
+         {EvalResult, EvalRest, NSeqCheck} = eval_seq_list(NewList, SeqCheck, State#state.host),
          {[{K, proplists:get_value(K, NewList)} || K <- EvalResult] ++ EvalRest, NSeqCheck};
 
       false -> {NewList, SeqCheck}
@@ -210,28 +208,25 @@ check_seq(_Item = #data_point{fields = #{?META_FIELD := #{<<"topic">> := Topic, 
 check_seq(_Item, State) ->
    State.
 
-send_reports([], _Host) ->
-   ok;
-send_reports(ReportList, Host) ->
-   {ok, Publisher} = mqtt_pub_pool_manager:get_connection(Host),
-   F = fun({Topic, Item}) ->
-      Json = flowdata:to_json(Item),
-      Publisher ! {publish, {Topic, Json, 1, false}}
-      end,
-   lists:foreach(F, ReportList).
+eval_seq_list(List, SeqCheck =
+      #seq_check{max_buffer_size = MaxSeqBuff, last_seq = LastSeq, seq_threshold = Threshold}, Host) ->
 
-
-eval_seq_list(List, SeqCheck = #seq_check{max_buffer_size = MaxSeqBuff, last_seq = LastSeq}) ->
    EvalLen = erlang:round(MaxSeqBuff/4),
    %% get the ordered list of all
    SeqListAll = orddict:to_list(orddict:from_list(List)),
    %% split the list and at the same time, get the keys from the left list
-   {[First0|_] = KeyList, SeqList, RList} = split_get_keys(EvalLen, SeqListAll),
-   First = case LastSeq of undefined -> First0; _ -> LastSeq+1 end,
-   Last0 = First + EvalLen - 1,
+   MinSeq =
+   case LastSeq of
+      undefined -> undefined;
+      Other when Other >= Threshold -> 0;
+      _ -> LastSeq
+   end,
+   {[First0|_] = KeyList, SeqList, RList} = split_get_keys(EvalLen, SeqListAll, MinSeq),
+   First = case MinSeq of undefined -> First0; _ -> MinSeq + 1 end,
+   Last0 = First + length(KeyList) - 1,
    {Last, LastSeq1} =
-   case Last0 > ?META_SEQ_THRESHOLD of
-      true -> {?META_SEQ_THRESHOLD, 0};
+   case Last0 > Threshold of
+      true -> {Threshold, 0};
       false -> {Last0, Last0}
    end,
    %% build a check list to get the difference
@@ -240,21 +235,33 @@ eval_seq_list(List, SeqCheck = #seq_check{max_buffer_size = MaxSeqBuff, last_seq
    MissingList = CheckList -- KeyList,
    %% get the remaining keys in the sequence list
    RemainingList = KeyList -- CheckList,
-   lager:notice("~ncheck ~w |||| seqlist: ~w |||| missing: ~w, remaining: ~w,  first: ~w, last: ~w",
-      [CheckList, KeyList, MissingList, RemainingList, First, Last]),
+%%   lager:notice("~nminkey: ~p ||| check ~w |||| seqlist: ~w |||| missing: ~w, remaining: ~w,  first: ~w, last: ~w",
+%%      [MinSeq, CheckList, KeyList, MissingList, RemainingList, First, Last]),
+   spawn(fun() -> report_seq(MissingList, SeqList, SeqCheck, Host) end),
+   {RemainingList, RList, SeqCheck#seq_check{last_seq = LastSeq1}}.
+
+
+-spec split_get_keys(N :: pos_integer(), L::list(), Min::undefined|list()) -> {list(), list(), list()}.
+split_get_keys(N, L, Min) ->
+%%   lager:notice("split_get_keys(~p, ~p, ~p)",[N, lists:reverse(L), Min]),
+   split_get_keys(N, L, {[], [], []}, Min).
+
+-spec split_get_keys(non_neg_integer(), L::list(), tuple(), _Min::undefined|list()) -> tuple().
+split_get_keys(0, L, {R, K, Skipped}, _Min) ->
+   {lists:reverse(K, []), lists:reverse(R, []), L++Skipped};
+split_get_keys(_, [], {R, K, Skipped}, _Min) ->
+   {lists:reverse(K, []), lists:reverse(R, []), Skipped};
+split_get_keys(N, [{HK, _HV}=H|T], {R, K, Skipped}, undefined) ->
+   split_get_keys(N-1, T, {[H|R],[HK|K], Skipped}, undefined);
+split_get_keys(N, [{HK, _HV}=H|T], {R, K, Skipped}, Min) when HK > Min ->
+   split_get_keys(N-1, T, {[H|R],[HK|K], Skipped}, Min);
+split_get_keys(N, [H|T], {R, K, Skipped}, Min) ->
+   split_get_keys(N, T, {R, K, [H|Skipped]}, Min).
+
+
+report_seq(MissingList, SeqList, SeqCheck, Host) ->
    Reports = build_check_report(MissingList, SeqList, SeqCheck),
-   {RemainingList, RList, SeqCheck#seq_check{last_seq = LastSeq1}, Reports}.
-
-
-split_get_keys(N, L) ->
-   split_get_keys(N, L, {[], []}).
-split_get_keys(0, L, {R, K}) ->
-   {lists:reverse(K, []), lists:reverse(R, []), L};
-split_get_keys(N, [{HK, _HV}=H|T], {R, K}) ->
-   split_get_keys(N-1, T, {[H|R],[HK|K]});
-split_get_keys(_, [], _) ->
-   badarg.
-
+   send_reports(Reports, Host).
 
 build_check_report([], _SeqList, #seq_check{report_topic_mask = _Topic}) ->
    [];
@@ -279,7 +286,7 @@ build_check_report(MissingList, SeqList, SeqCheck = #seq_check{meta_topic = MTop
 build_report_topic(SourceTopic, #seq_check{report_topic_mask = TopicTemplate, meta_topic_mapping = Mask}) ->
    Parts = string:lexemes(SourceTopic, "/"),
    maps:fold(
-      fun(Index, Field, TempTopic) ->
+      fun(Field, Index, TempTopic) ->
          Replacement =
          case catch lists:nth(Index, Parts) of
             R when is_binary(R) -> R;
@@ -289,13 +296,24 @@ build_report_topic(SourceTopic, #seq_check{report_topic_mask = TopicTemplate, me
       end, TopicTemplate, Mask).
 
 
+send_reports([], _Host) ->
+   ok;
+send_reports(ReportList, Host) ->
+   {ok, Publisher} = mqtt_pub_pool_manager:get_connection(Host),
+   F = fun({Topic, Item}) ->
+      Json = flowdata:to_json(Item),
+      Publisher ! {publish, {Topic, Json, 1, false}}
+       end,
+   lists:foreach(F, ReportList).
+
 -spec seq_check_new() -> #seq_check{}.
 seq_check_new() ->
    SeqCheck = #seq_check{},
    SeqCheckConfig = faxe_config:get(seq_check),
    WinSize = proplists:get_value(win_size, SeqCheckConfig, SeqCheck#seq_check.max_buffer_size),
    Mask = proplists:get_value(topic_mask, SeqCheckConfig, SeqCheck#seq_check.report_topic_mask),
-   Mapping0 = proplists:get_value(topic_mapping, SeqCheckConfig),
+   Mapping0 = faxe_util:to_bin(proplists:get_value(topic_mapping, SeqCheckConfig)),
+
    Mapping =
    case catch jiffy:decode(Mapping0, [return_maps]) of
       M when is_map(M) -> M;

@@ -26,7 +26,8 @@
 -export([init/3, process/3, options/0, handle_info/2, shutdown/1, metrics/0, check_options/0]).
 
 
--define(META_SEQ_THRESHOLD, 200).
+-define(META_SEQ_THRESHOLD, faxe_config:get_sub(seq_check, max_seq_num, 9999)).
+-define(META_FIELD, <<"_meta">>).
 
 %% state for safe-mode
 -record(state, {
@@ -47,6 +48,7 @@
 %%   seq_num = 1,
    add_seq_check = true,
    seq_check_topic_depth = 5,
+   seq_threshold,
 
    meta_fields = #{}
 }).
@@ -115,7 +117,6 @@ init_all(
        add_seq_check := AddCheck, seq_check_topic_depth := SeqCheckTopicDepth} = Opts,
     State = #state{fn_id = {FlowId, NodeId} =NId}) ->
 
-   lager:notice("~p opts: ~p",[?MODULE, Opts]),
    %% when using the connection pool, we have to take care of the connection_registry ourselves
    case Pool of
       true -> connection_registry:reg(NId, Host, Port, <<"mqtt">>);
@@ -125,7 +126,8 @@ init_all(
    {ok, all,
       State#state{
          options = Opts, safe = Safe, topic = Topic, topic_lambda = LTopic, topic_field = TField, use_pool = Pool,
-         delete_mode = Delete, meta_fields = Meta, seq_check_topic_depth = SeqCheckTopicDepth, add_seq_check = AddCheck}
+         delete_mode = Delete, meta_fields = Meta, seq_threshold = faxe_config:get_sub(seq_check, max_seq_num, 9999),
+         seq_check_topic_depth = SeqCheckTopicDepth, add_seq_check = AddCheck}
    }.
 
 prepare_opts({GId, NId}=GNId, Opts0 = #{client_id := CId, host := Host0, '_delete' := DelMode, retained := Ret}) ->
@@ -200,12 +202,12 @@ build_message(Item, State = #state{fn_id = FNId}) ->
 
 
 maybe_add_meta(Item = #data_point{fields = Fields}, Topic,
-    #state{add_seq_check = true, seq_check_topic_depth = Depth, meta_fields = Meta0}) ->
+    #state{add_seq_check = true, seq_check_topic_depth = Depth, meta_fields = Meta0, seq_threshold = Threshold}) ->
    MetaTopic = faxe_util:subtopic(Topic, Depth),
-   Threshold = ?META_SEQ_THRESHOLD, Pos = 2, Inc = 1, SetValue = 1,
+   Pos = 2, Inc = 1, SetValue = 1,
    Seq = ets:update_counter(mqtt_seq_cnt, MetaTopic, {Pos, Inc, Threshold, SetValue}, {MetaTopic, 0}),
 %%   lager:info("seq ~p",[Seq]),
-   NewFields = Fields#{<<"_meta">> => Meta0#{<<"seq">> => Seq, <<"topic">> => MetaTopic}},
+   NewFields = Fields#{?META_FIELD => Meta0#{<<"seq">> => Seq, <<"topic">> => MetaTopic}},
    Item#data_point{fields = NewFields};
 maybe_add_meta(Item , _T, _State) ->
    Item.
