@@ -16,7 +16,6 @@
     lager,
     lager_logstash_backend,
     esq,
-    emqttc,
     emqtt,
     jiffy,
     jsn,

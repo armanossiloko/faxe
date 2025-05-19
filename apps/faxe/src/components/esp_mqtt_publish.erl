@@ -25,8 +25,6 @@
 %% API
 -export([init/3, process/3, options/0, handle_info/2, shutdown/1, metrics/0, check_options/0]).
 
-
--define(META_SEQ_THRESHOLD, faxe_config:get_sub(seq_check, max_seq_num, 9999)).
 -define(META_FIELD, <<"_meta">>).
 
 %% state for safe-mode

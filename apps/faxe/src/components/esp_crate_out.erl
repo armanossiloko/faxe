@@ -71,9 +71,15 @@
 -define(FAILED_RETRY_INTERVAL, 1000).
 
 -define(CONNECT_OPTS, #{
-   connect_timeout => faxe_config:get_sub(crate_http, connection_timeout),
+   connect_timeout => faxe_config:get_sub(crate_http, connection_timeout)
+   }
+).
+
+-define(CONNECT_OPTS_TLS, (begin ?CONNECT_OPTS end)#{
+   transport => tls,
    transport_opts => [{verify, verify_none}]
-}).
+}
+).
 
 
 
@@ -169,7 +175,7 @@ init(NodeId, Inputs,
       pg_tls = PgTls
    },
 
-   {ok, all,State}.
+   {ok, all, State}.
 
 %%% DATA IN
 %% empyt batch -> continue

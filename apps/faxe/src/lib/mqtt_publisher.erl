@@ -302,7 +302,6 @@ disconnected(_Caller) ->
 
 
 do_connect(#state{host = Host, port = Port, client_id = ClientId, pool_caller = Caller} = State) ->
-   lager:notice("~p:do_connect clientid ~p",[?MODULE, ClientId]),
    reconnect_watcher:bump(),
    case is_pid(Caller) of
       true -> ok;
@@ -318,14 +317,13 @@ do_connect(#state{host = Host, port = Port, client_id = ClientId, pool_caller = 
       {keepalive, 15}, {clientid, ClientId},
       {reconnect, infinity}, {reconnect_timeout, 150},
       {owner, self()}, {msg_handler, MsgHandler},
-      {retry_interval, 10000}, {connect_timeout, 20000}
+      {retry_interval, 7000}, {connect_timeout, 20000}
    ],
    Opts1 = opts_auth(State, Opts0),
    Opts = opts_ssl(State, Opts1),
 %%   lager:notice("start mqtt client with: ~p",[Opts]),
    {ok, Client} = emqtt:start_link(Opts),
-   {ok, Props} = emqtt:connect(Client),
-   lager:notice("connect to mqtt broker props received: ~p",[Props]),
+   {ok, _Props} = emqtt:connect(Client),
    State#state{client = Client}.
 
 opts_auth(#state{user = <<>>}, Opts) -> Opts;
