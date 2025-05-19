@@ -29,14 +29,9 @@ start_link() ->
 %% Child :: {Id,StartFunc,Restart,Shutdown,Type,Modules}
 init([]) ->
     Procs = [
-%%        {faxe_peer_manager,
-%%            {faxe_peer_manager, start_link, []},
-%%            permanent, 5000, worker, []},
-
         {connection_registry,
             {connection_registry, start_link, []},
-            permanent, 5000, worker, []}
-        ,
+            permanent, 5000, worker, []},
 
         {faxe_time_offset_monitor,
             {faxe_time_offset_monitor, start_link, []},
@@ -108,23 +103,6 @@ init([]) ->
             {flow_deleter, start_link, []},
             permanent, 5000, worker, []}
    ],
-
-%%    Ps =
-%%    case faxe_config:get(mqtt_pool, enable) of
-%%        true ->
-%%            Procs++
-%%            [{wpool,
-%%                {wpool, start_pool,
-%%                    [
-%%                        {workers, faxe_config:get(mqtt_pool, max_size)},
-%%                        {queue_type, fifo}
-%%                    ]
-%%                },
-%%                permanent, 5000, worker, []}
-%%                ];
-%%        false ->
-%%            Procs
-%%    end,
    {ok, { {one_for_one, 5, 20}, Procs} }.
 
 %%====================================================================
