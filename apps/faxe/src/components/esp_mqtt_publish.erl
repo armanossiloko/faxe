@@ -147,7 +147,7 @@ process(_Inport, Item,
        options = #{qos := Qos, retained := Ret}}) ->
    {Topic, Message} = build_message(Item, State),
    M = {publish, {Topic, Message, Qos, Ret}},
-   lager:info("mem queue msg, because pool not connected ~p",[M]),
+%%   lager:info("mem queue msg, because pool not connected ~p",[M]),
    NewMemQ = memory_queue:enq(M, MemQ),
    {ok, State#state{mem_queue = NewMemQ}};
 process(_Inport, Item, State = #state{safe = false, use_pool = true, fn_id = FNId,

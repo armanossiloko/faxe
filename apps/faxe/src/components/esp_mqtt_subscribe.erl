@@ -145,7 +145,7 @@ handle_info({mqttc, _C, connected}, State=#state{host = Host, reconnector = Reco
    {ok, NewState};
 handle_info({mqttc, _C,  disconnected}, State=#state{client = _Client}) ->
    connection_registry:disconnected(),
-   lager:debug("~p mqtt client disconnected!!",[?MODULE]),
+%%   lager:debug("~p mqtt client disconnected!!",[?MODULE]),
    {ok, State#state{connected = false }};
 %% for emqtt
 handle_info({publish, #{payload := Payload, topic := Topic} }, S=#state{}) ->
@@ -352,7 +352,7 @@ build_mqtt_opts(State = #state{host = Host, port = Port}) ->
       {port, Port},
       {reconnect, infinity}, {reconnect_timeout, 100},
       {owner, self()},
-      {keepalive, 15}, {connect_timeout, 20},
+      {keepalive, 15}, {connect_timeout, 20000},
       {clean_start, false}
    ],
    Opts1 = opts_auth(State, Opts0),

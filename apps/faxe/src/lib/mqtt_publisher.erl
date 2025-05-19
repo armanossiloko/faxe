@@ -318,7 +318,7 @@ do_connect(#state{host = Host, port = Port, client_id = ClientId, pool_caller = 
       {keepalive, 15}, {clientid, ClientId},
       {reconnect, infinity}, {reconnect_timeout, 150},
       {owner, self()}, {msg_handler, MsgHandler},
-      {retry_interval, 10}, {connect_timeout, 20}
+      {retry_interval, 10000}, {connect_timeout, 20000}
    ],
    Opts1 = opts_auth(State, Opts0),
    Opts = opts_ssl(State, Opts1),
