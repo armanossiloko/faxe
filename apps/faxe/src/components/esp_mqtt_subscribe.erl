@@ -19,12 +19,17 @@
 -define(DEFAULT_PORT, 1883).
 -define(DEFAULT_SSL_PORT, 8883).
 
+-define(META_FIELD, <<"_meta">>).
+
 -record(seq_check, {
    seq_buffer = [],
    max_buffer_size = 30,
    last_eval_buffer = [],
-   report_topic = <<"tgw/data/{site}/Mqtt_Metric/{dataformat}">>,
-   meta_topic_mask = #{3 => <<"{site}">>, 4 => <<"{dataformat}">>, 5 => <<"blupp">>}
+   report_topic_mask = <<"tgw/data/{site}/Mqtt_Metric/{dataformat}">>,
+   meta_topic_mapping = #{3 => <<"{site}">>, 4 => <<"{dataformat}">>, 5 => <<"blupp">>},
+   last_seq,
+   meta_topic,
+   seq_threshold
 }).
 
 %% state for direct publish mode
@@ -51,13 +56,10 @@
    as,
    debug_mode = false,
    mqtt_opts = [],
-
+   %% map of seq check items in use, one per meta topic
    seq_checks = #{},
-   last_seq = #{},
-   tree_seq = #{},
-   seq_threshold = 900
+   seq_check_template :: #seq_check{}
 }).
-
 
 options() -> [
    {host, binary, {mqtt, host}},
@@ -121,7 +123,8 @@ init({GId, NId}=NodeId, _Ins,
    MqttOpts = build_mqtt_opts(State),
    %% mqtt publish is needed, when we do the sequence check
    mqtt_pub_pool_manager:connect(maps:from_list(MqttOpts)),
-   {ok, State#state{mqtt_opts = MqttOpts}}.
+   SeqCheckTemplate = seq_check_new(),
+   {ok, State#state{mqtt_opts = MqttOpts, seq_check_template = SeqCheckTemplate}}.
 
 ssl_opts(false) ->
    [];
@@ -133,20 +136,17 @@ process(_In, _, State = #state{}) ->
 
 
 handle_info(connect, State) ->
-   connect(State),
-   {ok, State};
-handle_info({mqttc, C, connected}, State=#state{host = Host, reconnector = Recon}) ->
+   {ok, connect(State)};
+handle_info({mqttc, _C, connected}, State=#state{host = Host, reconnector = Recon}) ->
    connection_registry:connected(),
-   lager:debug("mqtt client connected to ~p",[Host]),
-   NewState = State#state{client = C, connected = true, reconnector = faxe_backoff:reset(Recon)},
+   lager:info("~p mqtt client connected to ~p",[?MODULE, Host]),
+   NewState = State#state{connected = true, reconnector = faxe_backoff:reset(Recon)},
    subscribe(NewState),
    {ok, NewState};
-%% @todo do we have to kill the client ?
-handle_info({mqttc, _C,  disconnected}, State=#state{client = Client}) ->
-   catch exit(Client, kill),
+handle_info({mqttc, _C,  disconnected}, State=#state{client = _Client}) ->
    connection_registry:disconnected(),
-   lager:debug("mqtt client disconnected!!"),
-   {ok, State#state{connected = false, client = undefined}};
+%%   lager:debug("~p mqtt client disconnected!!",[?MODULE]),
+   {ok, State#state{connected = false }};
 %% for emqtt
 handle_info({publish, #{payload := Payload, topic := Topic} }, S=#state{}) ->
    data_received(Topic, Payload, S);
@@ -164,30 +164,33 @@ handle_info({'EXIT', _C, _Reason}, State = #state{reconnector = Recon, host = H,
 handle_info(start_debug, State) -> {ok, State#state{debug_mode = true}};
 handle_info(stop_debug, State) -> {ok, State#state{debug_mode = false}};
 handle_info(_What, State) ->
+   lager:info("~p got ~p",[?MODULE, _What]),
    {ok, State}.
 
 shutdown(#state{client = C}) ->
-   catch (emqttc:disconnect(C)).
+   catch emqtt:disconnect(C),
+   catch emqtt:stop(C).
 
 data_received(Topic, Payload,
-    State = #state{dt_field = DTField, dt_format = DTFormat, include_topic = AddTopic, topic_key = TopicKey, as = As}) ->
-   node_metrics:metric(?METRIC_BYTES_READ, byte_size(Payload), State#state.fn_id),
-   node_metrics:metric(?METRIC_ITEMS_IN, 1, State#state.fn_id),
+    S = #state{dt_field = DTField, dt_format = DTFormat, include_topic = AddTopic, topic_key = TopicKey, as = As}) ->
+   node_metrics:metric(?METRIC_BYTES_READ, byte_size(Payload), S#state.fn_id),
+   node_metrics:metric(?METRIC_ITEMS_IN, 1, S#state.fn_id),
    Item0 = flowdata:from_json_struct(Payload, DTField, DTFormat),
-%%   State = check_seq(Item0, S),
-   dataflow:maybe_debug(item_in, 1, Item0, State#state.fn_id, State#state.debug_mode),
+   {T, StateNew} = timer:tc(fun check_seq/2, [Item0, S]),
+   case T > 100 of true -> lager:warning("time for check_seq: ~pmy",[T]); _ -> ok end,
+   dataflow:maybe_debug(item_in, 1, Item0, StateNew#state.fn_id, StateNew#state.debug_mode),
    Item1 =
    case AddTopic of
       true -> flowdata:set_field(Item0, TopicKey, Topic);
       false -> Item0
    end,
    Item = flowdata:set_root(Item1, As),
-   {emit, {1, Item}, State}.
+   {emit, {1, Item}, StateNew}.
 
-check_seq(_Item = #data_point{fields = #{<<"_meta">> := #{<<"topic">> := Topic, <<"seq">> := Seq} = Meta }},
-    State = #state{seq_checks = SeqChecks}) ->
+check_seq(_Item = #data_point{fields = #{?META_FIELD := #{<<"topic">> := Topic, <<"seq">> := Seq} = Meta }},
+    State = #state{seq_checks = SeqChecks, seq_check_template = Template}) ->
 
-   SeqCheck = case maps:get(Topic, SeqChecks, nil) of nil -> #seq_check{}; T -> T end,
+   SeqCheck = case maps:get(Topic, SeqChecks, nil) of nil -> seq_check_inst(Topic, Template); T -> T end,
    MaxSeqBuffer = SeqCheck#seq_check.max_buffer_size,
    List = SeqCheck#seq_check.seq_buffer,
    NewList = [{Seq, Meta}|List],
@@ -195,8 +198,7 @@ check_seq(_Item = #data_point{fields = #{<<"_meta">> := #{<<"topic">> := Topic, 
    {NewList1, NewSeqCheck} =
    case length(NewList) >= MaxSeqBuffer of
       true ->
-         {EvalResult, EvalRest, NSeqCheck, Reports} = eval_seq_list(NewList, SeqCheck),
-         send_reports(Reports, State#state.host),
+         {EvalResult, EvalRest, NSeqCheck} = eval_seq_list(NewList, SeqCheck, State#state.host),
          {[{K, proplists:get_value(K, NewList)} || K <- EvalResult] ++ EvalRest, NSeqCheck};
 
       false -> {NewList, SeqCheck}
@@ -206,50 +208,74 @@ check_seq(_Item = #data_point{fields = #{<<"_meta">> := #{<<"topic">> := Topic, 
 check_seq(_Item, State) ->
    State.
 
-send_reports([], _Host) ->
-   ok;
-send_reports(ReportList, Host) ->
-   {ok, Publisher} = mqtt_pub_pool_manager:get_connection(Host),
-   F = fun({Topic, Item}) ->
-      Json = flowdata:to_json(Item),
-      Publisher ! {publish, {Topic, Json, 1, false}}
-      end,
-   lists:foreach(F, ReportList).
+eval_seq_list(List, SeqCheck =
+      #seq_check{max_buffer_size = MaxSeqBuff, last_seq = LastSeq, seq_threshold = Threshold}, Host) ->
 
-
-eval_seq_list(List, SeqCheck = #seq_check{max_buffer_size = MaxSeqBuff, last_eval_buffer = Seen}) ->
-   EvalLen = erlang:round(MaxSeqBuff/3),
-%%   lager:notice("eval list ~p",[orddict:to_list(orddict:from_list(List))]),
+   EvalLen = erlang:round(MaxSeqBuff/4),
    %% get the ordered list of all
    SeqListAll = orddict:to_list(orddict:from_list(List)),
-   %% split the list (in half)
-   {SeqList, RList} = lists:split(EvalLen, SeqListAll),
-   %% get all keys from the ordered splitted list to work with
-   [First|_] = KeyList = lists:sort(proplists:get_keys(SeqList)),
-   Last = First + length(KeyList) - 1,
+   %% split the list and at the same time, get the keys from the left list
+   MinSeq =
+   case LastSeq of
+      undefined -> undefined;
+      Other when Other >= Threshold -> 0;
+      _ -> LastSeq
+   end,
+   {[First0|_] = KeyList, SeqList, RList} = split_get_keys(EvalLen, SeqListAll, MinSeq),
+   First = case MinSeq of undefined -> First0; _ -> MinSeq + 1 end,
+   Last0 = First + length(KeyList) - 1,
+   {Last, LastSeq1} =
+   case Last0 > Threshold of
+      true -> {Threshold, 0};
+      false -> {Last0, Last0}
+   end,
    %% build a check list to get the difference
    CheckList = lists:seq(First, Last),
    %% get the missing keys
-   MissingList = CheckList -- (KeyList ++ Seen),
+   MissingList = CheckList -- KeyList,
    %% get the remaining keys in the sequence list
    RemainingList = KeyList -- CheckList,
-%%   lager:notice("all: ~w ~nrest: ~w~ncheck ~w |||| seqlist: ~w |||| result: ~w, remaining: ~w,  first: ~w, last: ~w",
-   lager:notice("~ncheck ~w |||| seqlist: ~w |||| lastseen: ~w |||| missing: ~w, remaining: ~w,  first: ~w, last: ~w",
-      [CheckList, KeyList, Seen, MissingList, RemainingList, First, Last]),
-%%      [SeqList, RList, CheckList, KeyList, MissingList, RemainingList, First, Last]),
-   Reports = build_check_report(MissingList, SeqList, SeqCheck),
-   NewEvalBuffer = lists:sublist(KeyList++Seen, trunc(MaxSeqBuff/2)),
-   {RemainingList, RList, SeqCheck#seq_check{last_eval_buffer = NewEvalBuffer}, Reports}.
+%%   lager:notice("~nminkey: ~p ||| check ~w |||| seqlist: ~w |||| missing: ~w, remaining: ~w,  first: ~w, last: ~w",
+%%      [MinSeq, CheckList, KeyList, MissingList, RemainingList, First, Last]),
+   spawn(fun() -> report_seq(MissingList, SeqList, SeqCheck, Host) end),
+   {RemainingList, RList, SeqCheck#seq_check{last_seq = LastSeq1}}.
 
-build_check_report([], _SeqList, #seq_check{report_topic = _Topic}) ->
+
+-spec split_get_keys(N :: pos_integer(), L::list(), Min::undefined|list()) -> {list(), list(), list()}.
+split_get_keys(N, L, Min) ->
+%%   lager:notice("split_get_keys(~p, ~p, ~p)",[N, lists:reverse(L), Min]),
+   split_get_keys(N, L, {[], [], []}, Min).
+
+-spec split_get_keys(non_neg_integer(), L::list(), tuple(), _Min::undefined|list()) -> tuple().
+split_get_keys(0, L, {R, K, Skipped}, _Min) ->
+   {lists:reverse(K, []), lists:reverse(R, []), L++Skipped};
+split_get_keys(_, [], {R, K, Skipped}, _Min) ->
+   {lists:reverse(K, []), lists:reverse(R, []), Skipped};
+split_get_keys(N, [{HK, _HV}=H|T], {R, K, Skipped}, undefined) ->
+   split_get_keys(N-1, T, {[H|R],[HK|K], Skipped}, undefined);
+split_get_keys(N, [{HK, _HV}=H|T], {R, K, Skipped}, Min) when HK > Min ->
+   split_get_keys(N-1, T, {[H|R],[HK|K], Skipped}, Min);
+split_get_keys(N, [H|T], {R, K, Skipped}, Min) ->
+   split_get_keys(N, T, {R, K, [H|Skipped]}, Min).
+
+
+report_seq(MissingList, SeqList, SeqCheck, Host) ->
+   Reports = build_check_report(MissingList, SeqList, SeqCheck),
+   send_reports(Reports, Host).
+
+build_check_report([], _SeqList, #seq_check{report_topic_mask = _Topic}) ->
    [];
-build_check_report(MissingList, SeqList, SeqCheck = #seq_check{}) ->
+build_check_report(MissingList, SeqList, SeqCheck = #seq_check{meta_topic = MTopic}) ->
    SeqTree = gb_trees:from_orddict(orddict:from_list(SeqList)),
    F =
       fun(SeqKey) ->
          DP = flowdata:new(),
-         {K0, Meta0=#{<<"topic">> := MTopic}} = gb_trees:smaller(SeqKey, SeqTree),
-         Fields = Meta0#{<<"seq_prev">> => K0, <<"seq">> => SeqKey},
+         {Key, Meta0} =
+         case gb_trees:smaller(SeqKey, SeqTree) of
+            {_K0, _Meta} = R -> R;
+            none -> gb_trees:larger(SeqKey, SeqTree)
+         end,
+         Fields = Meta0#{<<"seq_rel">> => Key, <<"seq">> => SeqKey},
          SendTopic = build_report_topic(MTopic, SeqCheck),
          {SendTopic, DP#data_point{fields = Fields}}
          end,
@@ -257,10 +283,10 @@ build_check_report(MissingList, SeqList, SeqCheck = #seq_check{}) ->
    [lager:notice("send report ~p",[P]) || P <- Reports],
    Reports.
 
-build_report_topic(SourceTopic, #seq_check{report_topic = TopicTemplate, meta_topic_mask = Mask}) ->
+build_report_topic(SourceTopic, #seq_check{report_topic_mask = TopicTemplate, meta_topic_mapping = Mask}) ->
    Parts = string:lexemes(SourceTopic, "/"),
    maps:fold(
-      fun(Index, Field, TempTopic) ->
+      fun(Field, Index, TempTopic) ->
          Replacement =
          case catch lists:nth(Index, Parts) of
             R when is_binary(R) -> R;
@@ -270,20 +296,64 @@ build_report_topic(SourceTopic, #seq_check{report_topic = TopicTemplate, meta_to
       end, TopicTemplate, Mask).
 
 
+send_reports([], _Host) ->
+   ok;
+send_reports(ReportList, Host) ->
+   {ok, Publisher} = mqtt_pub_pool_manager:get_connection(Host),
+   F = fun({Topic, Item}) ->
+      Json = flowdata:to_json(Item),
+      Publisher ! {publish, {Topic, Json, 1, false}}
+       end,
+   lists:foreach(F, ReportList).
 
-connect(#state{mqtt_opts = Opts}) ->
+-spec seq_check_new() -> #seq_check{}.
+seq_check_new() ->
+   SeqCheck = #seq_check{},
+   SeqCheckConfig = faxe_config:get(seq_check),
+   WinSize = proplists:get_value(win_size, SeqCheckConfig, SeqCheck#seq_check.max_buffer_size),
+   Mask = proplists:get_value(topic_mask, SeqCheckConfig, SeqCheck#seq_check.report_topic_mask),
+   Mapping0 = faxe_util:to_bin(proplists:get_value(topic_mapping, SeqCheckConfig)),
+
+   Mapping =
+   case catch jiffy:decode(Mapping0, [return_maps]) of
+      M when is_map(M) -> M;
+      _ -> SeqCheck#seq_check.meta_topic_mapping
+   end,
+   #seq_check{report_topic_mask = faxe_util:to_bin(Mask), max_buffer_size = WinSize, meta_topic_mapping = Mapping}.
+
+seq_check_inst(Topic, SeqCheck) ->
+   SeqCheck#seq_check{meta_topic = Topic}.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+connect(State = #state{mqtt_opts = Opts, client_id = ClientId}) ->
    connection_registry:connecting(),
    reconnect_watcher:bump(),
-   {ok, _Client} = emqttc:start_link(Opts++[{reconnect, 3, 120, 10}])
-.
+   S = self(),
+   MsgHandler = #{
+      publish => fun(Pack) -> S ! {publish, Pack} end,
+      connected => fun(Props) -> S ! {mqttc, Props, connected} end,
+      disconnected => fun(Reason) -> S ! {mqttc, Reason, disconnected} end
+   },
+   Opts0 = [
+      {msg_handler, MsgHandler},
+      {clientid, ClientId}
+   ],
+   Opts1 = Opts ++ Opts0,
 
-build_mqtt_opts(State = #state{host = Host, port = Port, client_id = ClientId}) ->
+   {ok, Client} = emqtt:start_link(Opts1),
+   {ok, _Props} = emqtt:connect(Client),
+%%   lager:notice("connect to mqtt broker gives: ~p",[Client]),
+   State#state{client = Client}.
+
+build_mqtt_opts(State = #state{host = Host, port = Port}) ->
    Opts0 = [
       {host, Host},
       {port, Port},
-      {keepalive, 15},
-      {client_id, ClientId},
-      {clean_sess, false}
+      {reconnect, infinity}, {reconnect_timeout, 100},
+      {owner, self()},
+      {keepalive, 15}, {connect_timeout, 20000},
+      {clean_start, false}
    ],
    Opts1 = opts_auth(State, Opts0),
    opts_ssl(State, Opts1).
@@ -294,12 +364,12 @@ opts_auth(#state{user = User, pass = Pass}, Opts) ->
    [{username, User},{password, Pass}] ++ Opts.
 opts_ssl(#state{ssl = false}, Opts) -> Opts;
 opts_ssl(#state{ssl = true, ssl_opts = SslOpts}, Opts) ->
-   [{ssl, SslOpts}] ++ Opts.
+   [{ssl, true}, {ssl_opts, SslOpts}]++ Opts.
 
 
 subscribe(#state{qos = Qos, client = C, topic = Topic, topics = undefined}) when is_binary(Topic) ->
-   ok = emqttc:subscribe(C, Topic, Qos);
+   emqtt:subscribe(C, Topic, Qos);
 subscribe(#state{qos = Qos, client = C, topics = Topics}) ->
    TQs = [{Top, Qos} || Top <- Topics],
-   ok = emqttc:subscribe(C, TQs).
+   emqtt:subscribe(C, TQs).
 

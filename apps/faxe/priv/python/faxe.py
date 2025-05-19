@@ -75,6 +75,7 @@ class Faxe:
         modname, module = Faxe.import_module(clname)
         module_path = os.path.abspath(module.__file__)
         deps_list = get_imported_modules(module_path, spath)
+        print(deps_list)
         return deps_list
 
     @staticmethod

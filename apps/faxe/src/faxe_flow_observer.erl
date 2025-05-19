@@ -18,8 +18,7 @@
 -define(TOPIC_KEY, <<"health">>).
 -define(QOS, 0).
 -define(RETAINED, false).
--define(REPORT_INTERVAL, proplists:get_value(report_interval, faxe_config:get_sub(flow_health, observer), 10000)).
--define(BUFFER_MAX_AGE, round(?REPORT_INTERVAL/2)).
+%%-define(BUFFER_MAX_AGE, round(?REPORT_INTERVAL/2)).
 
 -define(CONN_REF_FIELDS,      [<<"conn_type">>, <<"peer">>, <<"port">>]).
 -define(CONN_FIELD_CONNECTED, <<"connected">>).
@@ -41,6 +40,7 @@
   mqtt_connected = false  :: true | false,
   host                    :: string(),
   timer_ref               :: reference(),
+  report_interval         :: pos_integer(),
   connection_issues = []  :: list(),
   message_buffer = []     :: list()
 }).
@@ -137,10 +137,12 @@ init([FlowId, GraphPid]) ->
   %%% TOPIC
   Topic = faxe_util:build_topic([topic_base(BaseTopic), FlowId]),
 
+  ReportInterval = proplists:get_value(report_interval, faxe_config:get_sub(flow_health, observer), 10000),
   %%% REPORT TIMER
-  Timer = start_timer(?REPORT_INTERVAL),
+  Timer = start_timer(ReportInterval),
 
-  {ok, #state{flow_id = FlowId, topic = Topic, host = Host, timer_ref = Timer, graph = GraphPid}}.
+  {ok, #state{flow_id = FlowId, topic = Topic, host = Host, timer_ref = Timer,
+    graph = GraphPid, report_interval = ReportInterval}}.
 
 mqtt_opts() ->
   MqttOpts0 = faxe_config:get(mqtt, []),
@@ -181,12 +183,12 @@ handle_info({'DOWN', _Mon, process, Pid, Info}, State = #state{graph = Pid}) ->
   NewState = publish(jiffy:encode(Msg), State),
   {stop, normal, NewState};
 %% no connection issues, status ok
-handle_info(report, State = #state{connection_issues = []}) ->
-  NewTimer = start_timer(?REPORT_INTERVAL),
+handle_info(report, State = #state{connection_issues = [], report_interval = ReportInterval}) ->
+  NewTimer = start_timer(ReportInterval),
   NewState = publish(jiffy:encode(?MSG_HEALTHY), State),
   {noreply, NewState#state{timer_ref = NewTimer}};
-handle_info(report, State = #state{connection_issues = ConnIssues}) ->
-  NewTimer = start_timer(?REPORT_INTERVAL),
+handle_info(report, State = #state{connection_issues = ConnIssues, report_interval = ReportInterval}) ->
+  NewTimer = start_timer(ReportInterval),
   NewState = publish_conn_status(ConnIssues, State),
   {noreply, NewState#state{timer_ref = NewTimer}};
 handle_info({mqtt_connected, _}, State) ->
@@ -197,17 +199,17 @@ handle_info({mqtt_connected, _}, State) ->
 handle_info({mqtt_disconnected, _}, State) ->
   connection_registry:disconnected(),
   {noreply, State#state{mqtt_connected = false}};
-handle_info({log, Item}, State) ->
+handle_info({log, Item}, State = #state{report_interval = ReportInterval}) ->
   NewState = cancel_timer(State),
   Item0 = flowdata:from_json_struct(Item),
   Msg0 = flowdata:to_mapstruct(Item0),
   Msg = maps:put(?FIELD_ERRORS, [Msg0], ?MSG_UNHEALTHY),
   NewState1 = publish(jiffy:encode(Msg), NewState),
-  {noreply, NewState1#state{timer_ref = start_timer(?REPORT_INTERVAL)}};
-handle_info({conn_status, Item}, State) ->
+  {noreply, NewState1#state{timer_ref = start_timer(ReportInterval)}};
+handle_info({conn_status, Item}, State = #state{report_interval = ReportInterval}) ->
   NewState = cancel_timer(State),
   NewState1 = conn_status_received(NewState, Item),
-  {noreply, NewState1#state{timer_ref = start_timer(?REPORT_INTERVAL)}};
+  {noreply, NewState1#state{timer_ref = start_timer(ReportInterval)}};
 handle_info(Info, State = #state{}) ->
   lager:warning("~p got unexpected message: ~p",[?MODULE, Info]),
   {noreply, State}.

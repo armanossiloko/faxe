@@ -25,6 +25,10 @@
 %% API
 -export([init/3, process/3, options/0, handle_info/2, shutdown/1, metrics/0, check_options/0]).
 
+
+-define(META_SEQ_THRESHOLD, faxe_config:get_sub(seq_check, max_seq_num, 9999)).
+-define(META_FIELD, <<"_meta">>).
+
 %% state for safe-mode
 -record(state, {
    publisher,
@@ -41,10 +45,11 @@
    use_pool = false :: true|false,
    pool_connected = false :: true|false,
    delete_mode = false, %% if true, an empty message will be published instead of the actual message, this leads to del topic (retained)
-   seq_num = 1,
-   add_seq_num = false,
-   add_seq_num_as = <<"_meta.seq">>,
-   seq_num_topic_depth = 5,
+%%   seq_num = 1,
+   add_seq_check = true,
+   seq_check_topic_depth = 5,
+   seq_threshold,
+
    meta_fields = #{}
 }).
 %% state for direct publish mode
@@ -65,7 +70,10 @@ options() -> [
    {max_mem_queue_size, integer, 300},
    {use_pool, boolean, {mqtt_pub_pool, enable}},
    %% experimental delete mode
-   {'_delete', boolean, false}
+   {'_delete', boolean, false},
+   %% seq_check
+   {add_seq_check, boolean, {seq_check, enable}},
+   {seq_check_topic_depth, integer, {seq_check, topic_depth}}
 ].
 
 check_options() ->
@@ -105,8 +113,10 @@ init(NodeId, _Ins, #{safe := false} = Opts) ->
 
 init_all(
     #{safe := Safe, topic := Topic, topic_lambda := LTopic, topic_field := TField,
-       use_pool := Pool, host := Host, port := Port, '_delete' := Delete} = Opts,
+       use_pool := Pool, host := Host, port := Port, '_delete' := Delete,
+       add_seq_check := AddCheck, seq_check_topic_depth := SeqCheckTopicDepth} = Opts,
     State = #state{fn_id = {FlowId, NodeId} =NId}) ->
+
    %% when using the connection pool, we have to take care of the connection_registry ourselves
    case Pool of
       true -> connection_registry:reg(NId, Host, Port, <<"mqtt">>);
@@ -116,7 +126,8 @@ init_all(
    {ok, all,
       State#state{
          options = Opts, safe = Safe, topic = Topic, topic_lambda = LTopic, topic_field = TField, use_pool = Pool,
-         delete_mode = Delete, meta_fields = Meta}
+         delete_mode = Delete, meta_fields = Meta, seq_threshold = faxe_config:get_sub(seq_check, max_seq_num, 9999),
+         seq_check_topic_depth = SeqCheckTopicDepth, add_seq_check = AddCheck}
    }.
 
 prepare_opts({GId, NId}=GNId, Opts0 = #{client_id := CId, host := Host0, '_delete' := DelMode, retained := Ret}) ->
@@ -141,8 +152,9 @@ process(_Inport, Item,
    {ok, State#state{mem_queue = NewMemQ}};
 process(_Inport, Item, State = #state{safe = false, use_pool = true, fn_id = FNId,
       options = #{host := Host, qos := Qos, retained := Ret}}) ->
-   {Topic, Message} = build_message(Item, State),
+%%   lager:alert("~p got item ~p",[?MODULE, Item]),
    {ok, Publisher} = mqtt_pub_pool_manager:get_connection(Host),
+   {Topic, Message} = build_message(Item, State),
    Publisher ! {publish, {Topic, Message, Qos, Ret}},
    dataflow:maybe_debug(item_out, 1, Item, FNId, State#state.debug_mode),
    {ok, State};
@@ -154,19 +166,19 @@ process(_Inport, Item, State = #state{safe = false, publisher = Publisher, fn_id
 
 %% we only get these, when pool is used
 handle_info({mqtt_connected, _}, State = #state{mem_queue = Q, options = #{host := Host}}) ->
-
+   lager:info("mqtt_pool CONNECTED, resend ~p",[memory_queue:to_list(Q)]),
    {PendingList, NewQ} = memory_queue:to_list_reset(Q),
    case PendingList of
       [] -> ok;
       L when is_list(L) ->
-%%         lager:warning("~p RESEND ~p",[?MODULE, length(L)]),
+         lager:info(ets:tab2list(mqtt_pub_pools)),
          {ok, Publisher} = mqtt_pub_pool_manager:get_connection(Host),
          [Publisher ! M || M <- PendingList]
    end,
    connection_registry:connected(),
    {ok, State#state{pool_connected = true, mem_queue = NewQ}};
 handle_info({mqtt_disconnected, _}, State) ->
-%%   lager:info("~p mqtt_pool DISCONNECTED", [?MODULE]),
+   lager:info("mqtt_pool DISCONNECTED"),
    connection_registry:disconnected(),
    {ok, State#state{pool_connected = false}};
 
@@ -190,12 +202,12 @@ build_message(Item, State = #state{fn_id = FNId}) ->
 
 
 maybe_add_meta(Item = #data_point{fields = Fields}, Topic,
-    #state{add_seq_num = true, seq_num_topic_depth = Depth, meta_fields = Meta0}) ->
+    #state{add_seq_check = true, seq_check_topic_depth = Depth, meta_fields = Meta0, seq_threshold = Threshold}) ->
    MetaTopic = faxe_util:subtopic(Topic, Depth),
-   Threshold = 900, Pos = 2, Inc = 1, SetValue = 1,
+   Pos = 2, Inc = 1, SetValue = 1,
    Seq = ets:update_counter(mqtt_seq_cnt, MetaTopic, {Pos, Inc, Threshold, SetValue}, {MetaTopic, 0}),
 %%   lager:info("seq ~p",[Seq]),
-   NewFields = Fields#{<<"_meta">> => Meta0#{<<"seq">> => Seq, <<"topic">> => MetaTopic}},
+   NewFields = Fields#{?META_FIELD => Meta0#{<<"seq">> => Seq, <<"topic">> => MetaTopic}},
    Item#data_point{fields = NewFields};
 maybe_add_meta(Item , _T, _State) ->
    Item.

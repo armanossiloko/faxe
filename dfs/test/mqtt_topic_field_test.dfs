@@ -1,6 +1,5 @@
 def default_map =
-    '{"1":"tgw/data/some/test/number1", "2":"tgw/data/some/test/number2", "3":"tgw/data/some/test/number3",
-    "4":"tgw/data/some/test/number4"}'
+    '{"1":"tgw/data/some/test/number1", "2":"tgw/data/some/test/number2", "3":"tgw/data/some/test/number3"}'
 def payload =
 |json_emitter()
 .every(100ms)
