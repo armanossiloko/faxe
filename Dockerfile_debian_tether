@@ -3,7 +3,7 @@ FROM registry.datahub.tgw-group.cloud/docker-hub-proxy/python:3.13.3-bookworm AS
 
 ### erlang and rebar3
 # renovate: datasource=github-tags depName=erlang/otp
-ARG OTP_VERSION=27.3.2
+ARG OTP_VERSION=27.3.4
 # renovate: datasource=github-releases depName=erlang/rebar3
 ARG REBAR3_VERSION=3.24.0
 
@@ -14,7 +14,7 @@ LABEL org.opencontainers.image.version=$OTP_VERSION
 
 RUN set -xe \
 	&& OTP_DOWNLOAD_URL="https://github.com/erlang/otp/releases/download/OTP-${OTP_VERSION}/otp_src_${OTP_VERSION}.tar.gz" \
-	&& OTP_DOWNLOAD_SHA256="7997a0900d149c82ae3d0f523d7dfa960ac3cd58acf0b158519c108eb5c65661" \
+	&& OTP_DOWNLOAD_SHA256="c3a0a0b51df08f877eed88378f3d2da7026a75b8559803bd78071bb47cd4783b" \
 	&& CONFIGURE_ARGS="--without-wx --without-debugger --without-observer --without-et --without-javac --without-odbc --without-megaco" \
 	&& fetchDeps=' \
 		curl \
