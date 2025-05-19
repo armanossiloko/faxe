@@ -12,6 +12,8 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    env:
+      BUILD_WITHOUT_QUIC: true
     container:
       image: erlang:27.3.2
     steps:
