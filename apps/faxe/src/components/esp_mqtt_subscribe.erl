@@ -212,7 +212,7 @@ check_seq(_Item, State) ->
 
 eval_seq_list(List, SeqCheck =
       #seq_check{max_buffer_size = MaxSeqBuff, last_seq = LastSeq, seq_threshold = Threshold}, Host) ->
-
+   lager:notice("check with ~p",[lager:pr(SeqCheck, ?MODULE)]),
    EvalLen = erlang:round(MaxSeqBuff/4),
    %% get the ordered list of all
    SeqListAll = orddict:to_list(orddict:from_list(List)),
@@ -223,7 +223,12 @@ eval_seq_list(List, SeqCheck =
       Other when Other >= Threshold -> 0;
       _ -> LastSeq
    end,
-   {[First0|_] = KeyList, SeqList, RList} = split_get_keys(EvalLen, SeqListAll, MinSeq),
+   {First0, KeyList, SeqList, RList} =
+   case catch split_get_keys(EvalLen, SeqListAll, MinSeq) of
+      {[First01|_] = KeyList1, SeqList1, RList1} -> {First01, KeyList1, SeqList1, RList1};
+      What -> lager:warning("called split_get_keys with ~p, ~w ~p got ~p",[EvalLen, SeqListAll, MinSeq, What]),
+         {0, [], [], []}
+   end,
    First = case MinSeq of undefined -> First0; _ -> MinSeq + 1 end,
    Last0 = First + length(KeyList) - 1,
    {Last, LastSeq1} =
