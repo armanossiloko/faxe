@@ -136,8 +136,9 @@ prepare_opts({GId, NId}=GNId, Opts0 = #{client_id := CId, host := Host0, '_delet
 
 %% safe state
 process(_In, Item, State = #state{safe = true, queue = Q, fn_id = FNId}) ->
-   ok = esq:enq(build_message(Item, State), Q),
-   dataflow:maybe_debug(item_out, 1, Item, FNId, State#state.debug_mode),
+   {Topic, Item1} = build_item(Item, State),
+   ok = esq:enq(build_message(Item1, Topic, State), Q),
+   dataflow:maybe_debug(item_out, 1, Item1, FNId, State#state.debug_mode),
    {ok, State};
 %% using the connection pool
 process(_Inport, Item,
@@ -152,14 +153,17 @@ process(_Inport, Item, State = #state{safe = false, use_pool = true, fn_id = FNI
       options = #{host := Host, qos := Qos, retained := Ret}}) ->
 %%   lager:alert("~p got item ~p",[?MODULE, Item]),
    {ok, Publisher} = mqtt_pub_pool_manager:get_connection(Host),
-   {Topic, Message} = build_message(Item, State),
+   {Topic, Item1} = build_item(Item, State),
+   {Topic, Message} = build_message(Item1, Topic, State),
    Publisher ! {publish, {Topic, Message, Qos, Ret}},
-   dataflow:maybe_debug(item_out, 1, Item, FNId, State#state.debug_mode),
+   dataflow:maybe_debug(item_out, 1, Item1, FNId, State#state.debug_mode),
    {ok, State};
 process(_Inport, Item, State = #state{safe = false, publisher = Publisher, fn_id = FNId}) ->
 %%   lager:warning("send msg when not safe and no pool used: ~p",[lager:pr(State, ?MODULE)]),
-   Publisher ! {publish, build_message(Item, State)},
-   dataflow:maybe_debug(item_out, 1, Item, FNId, State#state.debug_mode),
+   {Topic, Item1} = build_item(Item, State),
+   TopicMessage = build_message(Item1, Topic, State),
+   Publisher ! {publish, TopicMessage},
+   dataflow:maybe_debug(item_out, 1, Item1, FNId, State#state.debug_mode),
    {ok, State}.
 
 %% we only get these, when pool is used
@@ -188,15 +192,26 @@ handle_info(_E, S) ->
 shutdown(#state{publisher = P}) ->
    catch gen_server:stop(P).
 
-build_message(Item, State = #state{fn_id = _FNId, delete_mode = true}) ->
-   {get_topic(Item, State), <<>>};
-build_message(Item, State = #state{fn_id = FNId}) ->
+
+
+build_item(Item, State) ->
    Topic = get_topic(Item, State),
    Item1 = maybe_add_meta(Item, Topic, State),
-   Json = flowdata:to_json(Item1),
+   {Topic, Item1}.
+
+build_message(_Item, Topic, #state{fn_id = _FNId, delete_mode = true}) ->
+   {Topic, <<>>};
+build_message(Item, Topic, #state{fn_id = FNId}) ->
+   Json = flowdata:to_json(Item),
 %%   node_metrics:metric(?METRIC_BYTES_SENT, byte_size(Json), FNId),
    node_metrics:metric(?METRIC_ITEMS_OUT, 1, FNId),
    {Topic, Json}.
+
+build_message(Item, State = #state{fn_id = _FNId, delete_mode = true}) ->
+   {get_topic(Item, State), <<>>};
+build_message(Item, State) ->
+   {Topic, Item1} = build_item(Item, State),
+   build_message(Item1, Topic, State).
 
 
 maybe_add_meta(Item = #data_point{fields = Fields}, Topic,
