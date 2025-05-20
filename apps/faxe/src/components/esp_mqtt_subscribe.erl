@@ -212,7 +212,8 @@ check_seq(_Item, State) ->
 
 eval_seq_list(List, SeqCheck =
       #seq_check{max_buffer_size = MaxSeqBuff, last_seq = LastSeq, seq_threshold = Threshold}, Host) ->
-   lager:notice("check with ~p",[lager:pr(SeqCheck, ?MODULE)]),
+
+%%   lager:notice("check with ~p",[lager:pr(SeqCheck, ?MODULE)]),
    EvalLen = erlang:round(MaxSeqBuff/4),
    %% get the ordered list of all
    SeqListAll = orddict:to_list(orddict:from_list(List)),
