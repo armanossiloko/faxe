@@ -197,8 +197,7 @@ shutdown(#state{publisher = P}) ->
 
 build_item(Item, State) ->
    Topic = get_topic(Item, State),
-   {Ts, {Item1, NewState}} = timer:tc(fun() -> maybe_add_meta(Item, Topic, State) end),
-   lager:info("time for add_meta: ~pmy",[Ts]),
+   {Item1, NewState} = maybe_add_meta(Item, Topic, State),
    {Topic, Item1, NewState}.
 
 build_message(_Item, Topic, #state{fn_id = _FNId, delete_mode = true}) ->
