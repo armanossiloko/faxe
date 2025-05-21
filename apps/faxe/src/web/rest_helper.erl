@@ -24,7 +24,7 @@ is_authorized(Req) ->
       {basic, User , Pass} ->
          case faxe_db:has_user_with_pw(User, Pass) of
             true -> rest_audit_server:audit(User, Req), {true, User};
-            false -> lager:notice("user: ~p with pw: ~p is not authorized", [User, Pass]), false
+            false -> lager:notice("user: ~p is not authorized", [User]), false
          end;
       {bearer, Token} ->
          JWTConf = faxe_config:get_sub(http_api, jwt),

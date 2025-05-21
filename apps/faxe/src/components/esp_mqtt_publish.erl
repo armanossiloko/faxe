@@ -47,6 +47,7 @@
    add_seq_check = true,
    seq_check_topic_depth = 5,
    seq_threshold,
+   seq_counters = #{},
 
    meta_fields = #{}
 }).
@@ -136,10 +137,10 @@ prepare_opts({GId, NId}=GNId, Opts0 = #{client_id := CId, host := Host0, '_delet
 
 %% safe state
 process(_In, Item, State = #state{safe = true, queue = Q, fn_id = FNId}) ->
-   {Topic, Item1} = build_item(Item, State),
-   ok = esq:enq(build_message(Item1, Topic, State), Q),
-   dataflow:maybe_debug(item_out, 1, Item1, FNId, State#state.debug_mode),
-   {ok, State};
+   {Topic, Item1, NewState} = build_item(Item, State),
+   ok = esq:enq(build_message(Item1, Topic, NewState), Q),
+   dataflow:maybe_debug(item_out, 1, Item1, FNId, NewState#state.debug_mode),
+   {ok, NewState};
 %% using the connection pool
 process(_Inport, Item,
     State = #state{use_pool = true, pool_connected = false, mem_queue = MemQ,
@@ -153,18 +154,18 @@ process(_Inport, Item, State = #state{safe = false, use_pool = true, fn_id = FNI
       options = #{host := Host, qos := Qos, retained := Ret}}) ->
 %%   lager:alert("~p got item ~p",[?MODULE, Item]),
    {ok, Publisher} = mqtt_pub_pool_manager:get_connection(Host),
-   {Topic, Item1} = build_item(Item, State),
-   {Topic, Message} = build_message(Item1, Topic, State),
+   {Topic, Item1, NewState} = build_item(Item, State),
+   {Topic, Message} = build_message(Item1, Topic, NewState),
    Publisher ! {publish, {Topic, Message, Qos, Ret}},
-   dataflow:maybe_debug(item_out, 1, Item1, FNId, State#state.debug_mode),
-   {ok, State};
+   dataflow:maybe_debug(item_out, 1, Item1, FNId, NewState#state.debug_mode),
+   {ok, NewState};
 process(_Inport, Item, State = #state{safe = false, publisher = Publisher, fn_id = FNId}) ->
 %%   lager:warning("send msg when not safe and no pool used: ~p",[lager:pr(State, ?MODULE)]),
-   {Topic, Item1} = build_item(Item, State),
-   TopicMessage = build_message(Item1, Topic, State),
+   {Topic, Item1, NewState} = build_item(Item, State),
+   TopicMessage = build_message(Item1, Topic, NewState),
    Publisher ! {publish, TopicMessage},
-   dataflow:maybe_debug(item_out, 1, Item1, FNId, State#state.debug_mode),
-   {ok, State}.
+   dataflow:maybe_debug(item_out, 1, Item1, FNId, NewState#state.debug_mode),
+   {ok, NewState}.
 
 %% we only get these, when pool is used
 handle_info({mqtt_connected, _}, State = #state{mem_queue = Q, options = #{host := Host}}) ->
@@ -196,8 +197,9 @@ shutdown(#state{publisher = P}) ->
 
 build_item(Item, State) ->
    Topic = get_topic(Item, State),
-   Item1 = maybe_add_meta(Item, Topic, State),
-   {Topic, Item1}.
+   {Ts, {Item1, NewState}} = timer:tc(fun() -> maybe_add_meta(Item, Topic, State) end),
+   lager:info("time for add_meta: ~pmy",[Ts]),
+   {Topic, Item1, NewState}.
 
 build_message(_Item, Topic, #state{fn_id = _FNId, delete_mode = true}) ->
    {Topic, <<>>};
@@ -210,20 +212,26 @@ build_message(Item, Topic, #state{fn_id = FNId}) ->
 build_message(Item, State = #state{fn_id = _FNId, delete_mode = true}) ->
    {get_topic(Item, State), <<>>};
 build_message(Item, State) ->
-   {Topic, Item1} = build_item(Item, State),
-   build_message(Item1, Topic, State).
+   {Topic, Item1, NewState} = build_item(Item, State),
+   build_message(Item1, Topic, NewState).
 
 
 maybe_add_meta(Item = #data_point{fields = Fields}, Topic,
-    #state{add_seq_check = true, seq_check_topic_depth = Depth, meta_fields = Meta0, seq_threshold = Threshold}) ->
-   MetaTopic = faxe_util:subtopic(Topic, Depth),
+    State = #state{add_seq_check = true, meta_fields = Meta0, seq_threshold = Threshold}) ->
+   {MetaTopic, IsFreshStart, NewState}  = get_seq_counter(Topic, State),
    Pos = 2, Inc = 1, SetValue = 1,
    Seq = ets:update_counter(mqtt_seq_cnt, MetaTopic, {Pos, Inc, Threshold, SetValue}, {MetaTopic, 0}),
-%%   lager:info("seq ~p",[Seq]),
-   NewFields = Fields#{?META_FIELD => Meta0#{<<"seq">> => Seq, <<"topic">> => MetaTopic}},
-   Item#data_point{fields = NewFields};
-maybe_add_meta(Item , _T, _State) ->
-   Item.
+   NewFields = Fields#{?META_FIELD => Meta0#{<<"seq">> => Seq, <<"topic">> => MetaTopic, <<"started">> => IsFreshStart}},
+   {Item#data_point{fields = NewFields}, NewState};
+maybe_add_meta(Item , _T, State) ->
+   {Item, State}.
+
+get_seq_counter(Topic, State = #state{seq_counters = Counts}) when is_map_key(Topic, Counts) ->
+   {maps:get(Topic, Counts), false, State};
+get_seq_counter(Topic, State = #state{seq_check_topic_depth = Depth, seq_counters = Counts}) ->
+   MetaTopic = faxe_util:subtopic(Topic, Depth),
+   IsFreshStart = case ets:lookup(mqtt_seq_cnt, MetaTopic) of [] -> true; _ -> false end,
+   {MetaTopic, IsFreshStart, State#state{seq_counters = Counts#{Topic => MetaTopic}}}.
 
 get_topic(_Item, # state{topic_lambda = undefined, topic_field = undefined, topic = Topic}) ->
    Topic;

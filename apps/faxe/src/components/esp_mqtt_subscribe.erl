@@ -24,8 +24,9 @@
 -record(seq_check, {
    seq_buffer = [],
    max_buffer_size = 30,
-   last_eval_buffer = [],
+   last_meta = #{},
    report_topic_mask = <<"tgw/data/{site}/Mqtt_Metric/{dataformat}">>,
+   report_topic,
    meta_topic_mapping = #{3 => <<"{site}">>, 4 => <<"{dataformat}">>, 5 => <<"blupp">>},
    last_seq,
    meta_topic,
@@ -178,8 +179,8 @@ data_received(Topic, Payload,
    node_metrics:metric(?METRIC_BYTES_READ, byte_size(Payload), S#state.fn_id),
    node_metrics:metric(?METRIC_ITEMS_IN, 1, S#state.fn_id),
    Item0 = flowdata:from_json_struct(Payload, DTField, DTFormat),
-   {T, StateNew} = timer:tc(fun check_seq/2, [Item0, S]),
-   case T > 100 of true -> lager:warning("time for check_seq: ~pmy",[T]); _ -> ok end,
+   {_T, StateNew} = timer:tc(fun check_seq/2, [Item0, S]),
+%%   case T > 100 of true -> lager:warning("time for check_seq: ~pmy",[T]); _ -> ok end,
    dataflow:maybe_debug(item_in, 1, Item0, StateNew#state.fn_id, StateNew#state.debug_mode),
    Item1 =
    case AddTopic of
@@ -189,26 +190,34 @@ data_received(Topic, Payload,
    Item = flowdata:set_root(Item1, As),
    {emit, {1, Item}, StateNew}.
 
-check_seq(_Item = #data_point{fields = #{?META_FIELD := #{<<"topic">> := Topic, <<"seq">> := Seq} = Meta }},
-    State = #state{seq_checks = SeqChecks, seq_check_template = Template}) ->
+check_seq(Item = #data_point{fields = #{?META_FIELD := #{<<"topic">> := Topic, <<"seq">> := Seq} = Meta }},
+    State = #state{seq_checks = SeqChecks}) ->
 
-   SeqCheck = case maps:get(Topic, SeqChecks, nil) of nil -> seq_check_inst(Topic, Template); T -> T end,
+   SeqCheck0 = get_check(Topic, State, Item),
+   SeqCheck = SeqCheck0#seq_check{last_meta = Meta},
    MaxSeqBuffer = SeqCheck#seq_check.max_buffer_size,
    List = SeqCheck#seq_check.seq_buffer,
-   NewList = [{Seq, Meta}|List],
-
+   NewList = [Seq|List],
    {NewList1, NewSeqCheck} =
    case length(NewList) >= MaxSeqBuffer of
       true ->
          {EvalResult, EvalRest, NSeqCheck} = eval_seq_list(NewList, SeqCheck, State#state.host),
-         {[{K, proplists:get_value(K, NewList)} || K <- EvalResult] ++ EvalRest, NSeqCheck};
-
-      false -> {NewList, SeqCheck}
+         {EvalResult ++ EvalRest, NSeqCheck};
+      false ->
+         {NewList, SeqCheck}
    end,
    NewSeqCheck1 = NewSeqCheck#seq_check{seq_buffer = NewList1},
    State#state{seq_checks = SeqChecks#{Topic => NewSeqCheck1}};
 check_seq(_Item, State) ->
    State.
+
+get_check(Topic, #state{seq_check_template = Template}, #data_point{fields = #{?META_FIELD := #{<<"started">> := true}}}) ->
+   seq_check_inst(Topic, Template);
+get_check(Topic, #state{seq_checks = SeqChecks}, _Item) when is_map_key(Topic, SeqChecks) ->
+   maps:get(Topic, SeqChecks);
+get_check(Topic, #state{seq_check_template = Template}, _Item) ->
+   seq_check_inst(Topic, Template).
+
 
 eval_seq_list(List, SeqCheck =
       #seq_check{max_buffer_size = MaxSeqBuff, last_seq = LastSeq, seq_threshold = Threshold}, Host) ->
@@ -216,7 +225,7 @@ eval_seq_list(List, SeqCheck =
 %%   lager:notice("check with ~p",[lager:pr(SeqCheck, ?MODULE)]),
    EvalLen = erlang:round(MaxSeqBuff/4),
    %% get the ordered list of all
-   SeqListAll = orddict:to_list(orddict:from_list(List)),
+   SeqListAll = ordsets:to_list(ordsets:from_list(List)),
    %% split the list and at the same time, get the keys from the left list
    MinSeq =
    case LastSeq of
@@ -224,16 +233,20 @@ eval_seq_list(List, SeqCheck =
       Other when Other >= Threshold -> 0;
       _ -> LastSeq
    end,
-   {First0, KeyList, SeqList, RList} =
+   {First0, KeyList, RList} =
    case catch split_get_keys(EvalLen, SeqListAll, MinSeq) of
-      {[First01|_] = KeyList1, SeqList1, RList1} -> {First01, KeyList1, SeqList1, RList1};
-      What -> lager:warning("called split_get_keys with ~p, ~w ~p got ~p",[EvalLen, SeqListAll, MinSeq, What]),
-         {0, [], [], []}
+      {[First01|_] = KeyList1, RList1} -> {First01, KeyList1, RList1};
+      What -> lager:warning("called split_get_keys with ~p, ~w ~p(~p) got ~w",[EvalLen, SeqListAll, MinSeq, Threshold, What]),
+         {0, [], []}
    end,
-   First = case MinSeq of undefined -> First0; _ -> MinSeq + 1 end,
+   case length(KeyList) < EvalLen of
+      true -> lager:warning("keylist is shorten than evalLen with ~w minseq: ~p",[SeqListAll, MinSeq]);
+      false -> ok
+   end,
+   First = case MinSeq of undefined -> First0; _ -> case MinSeq+1 >= Threshold of true -> 1; false -> MinSeq+1 end end,
    Last0 = First + length(KeyList) - 1,
    {Last, LastSeq1} =
-   case Last0 > Threshold of
+   case Last0 >= Threshold of
       true -> {Threshold, 0};
       false -> {Last0, Last0}
    end,
@@ -243,48 +256,43 @@ eval_seq_list(List, SeqCheck =
    MissingList = CheckList -- KeyList,
    %% get the remaining keys in the sequence list
    RemainingList = KeyList -- CheckList,
-%%   lager:notice("~nminkey: ~p ||| check ~w |||| seqlist: ~w |||| missing: ~w, remaining: ~w,  first: ~w, last: ~w",
-%%      [MinSeq, CheckList, KeyList, MissingList, RemainingList, First, Last]),
-   spawn(fun() -> report_seq(MissingList, SeqList, SeqCheck, Host) end),
+%%   lager:notice("~nminkey: ~p ||| check ~w |||| seqlist: ~w |||| missing: ~w, remaining: ~w,  first: ~w, last: ~w, last_seq ~w",
+%%      [MinSeq, CheckList, KeyList, MissingList, RemainingList, First, Last, LastSeq1]),
+   spawn(fun() -> report_seq(MissingList, SeqCheck, Host) end),
    {RemainingList, RList, SeqCheck#seq_check{last_seq = LastSeq1}}.
 
 
 -spec split_get_keys(N :: pos_integer(), L::list(), Min::undefined|list()) -> {list(), list(), list()}.
 split_get_keys(N, L, Min) ->
 %%   lager:notice("split_get_keys(~p, ~p, ~p)",[N, lists:reverse(L), Min]),
-   split_get_keys(N, L, {[], [], []}, Min).
+   split_get_keys(N, L, {[], []}, Min).
 
 -spec split_get_keys(non_neg_integer(), L::list(), tuple(), _Min::undefined|list()) -> tuple().
-split_get_keys(0, L, {R, K, Skipped}, _Min) ->
-   {lists:reverse(K, []), lists:reverse(R, []), L++Skipped};
-split_get_keys(_, [], {R, K, Skipped}, _Min) ->
-   {lists:reverse(K, []), lists:reverse(R, []), Skipped};
-split_get_keys(N, [{HK, _HV}=H|T], {R, K, Skipped}, undefined) ->
-   split_get_keys(N-1, T, {[H|R],[HK|K], Skipped}, undefined);
-split_get_keys(N, [{HK, _HV}=H|T], {R, K, Skipped}, Min) when HK > Min ->
-   split_get_keys(N-1, T, {[H|R],[HK|K], Skipped}, Min);
-split_get_keys(N, [H|T], {R, K, Skipped}, Min) ->
-   split_get_keys(N, T, {R, K, [H|Skipped]}, Min).
+split_get_keys(0, L, {K, Skipped}, _Min) ->
+   {lists:reverse(K, []), L++Skipped};
+split_get_keys(_, [], {K, Skipped}, _Min) ->
+   {lists:reverse(K, []), Skipped};
+split_get_keys(N, [HK|T], {K, Skipped}, undefined) ->
+   split_get_keys(N-1, T, {[HK|K], Skipped}, undefined);
+split_get_keys(N, [HK|T], {K, Skipped}, Min) when HK > Min ->
+   split_get_keys(N-1, T, {[HK|K], Skipped}, Min);
+split_get_keys(N, [H|T], {K, Skipped}, Min) ->
+   split_get_keys(N, T, {K, [H|Skipped]}, Min).
 
 
-report_seq(MissingList, SeqList, SeqCheck, Host) ->
-   Reports = build_check_report(MissingList, SeqList, SeqCheck),
+report_seq(MissingList, SeqCheck, Host) ->
+   Reports = build_check_report(MissingList, SeqCheck),
    send_reports(Reports, Host).
 
-build_check_report([], _SeqList, #seq_check{report_topic_mask = _Topic}) ->
+build_check_report([], #seq_check{report_topic_mask = _Topic}) ->
    [];
-build_check_report(MissingList, SeqList, SeqCheck = #seq_check{meta_topic = MTopic}) ->
-   SeqTree = gb_trees:from_orddict(orddict:from_list(SeqList)),
+build_check_report(MissingList, #seq_check{report_topic = SendTopic, last_meta = Meta}) ->
    F =
       fun(SeqKey) ->
          DP = flowdata:new(),
-         {Key, Meta0} =
-         case gb_trees:smaller(SeqKey, SeqTree) of
-            {_K0, _Meta} = R -> R;
-            none -> gb_trees:larger(SeqKey, SeqTree)
-         end,
-         Fields = Meta0#{<<"seq_rel">> => Key, <<"seq">> => SeqKey},
-         SendTopic = build_report_topic(MTopic, SeqCheck),
+         Fields = Meta#{
+%%            <<"seq_rel">> => RelKey,
+            <<"seq">> => SeqKey},
          {SendTopic, DP#data_point{fields = Fields}}
          end,
    Reports = lists:map(F, MissingList),
@@ -298,7 +306,7 @@ build_report_topic(SourceTopic, #seq_check{report_topic_mask = TopicTemplate, me
          Replacement =
          case catch lists:nth(Index, Parts) of
             R when is_binary(R) -> R;
-            _ -> <<"not_found">>
+            _ -> Field
          end,
          binary:replace(TempTopic, Field, Replacement)
       end, TopicTemplate, Mask).
@@ -321,16 +329,21 @@ seq_check_new() ->
    WinSize = proplists:get_value(win_size, SeqCheckConfig, SeqCheck#seq_check.max_buffer_size),
    Mask = proplists:get_value(topic_mask, SeqCheckConfig, SeqCheck#seq_check.report_topic_mask),
    Mapping0 = faxe_util:to_bin(proplists:get_value(topic_mapping, SeqCheckConfig)),
+   Threshold = proplists:get_value(max_seq_num, SeqCheckConfig),
+
 
    Mapping =
    case catch jiffy:decode(Mapping0, [return_maps]) of
       M when is_map(M) -> M;
       _ -> SeqCheck#seq_check.meta_topic_mapping
    end,
-   #seq_check{report_topic_mask = faxe_util:to_bin(Mask), max_buffer_size = WinSize, meta_topic_mapping = Mapping}.
+   #seq_check{
+      report_topic_mask = faxe_util:to_bin(Mask), max_buffer_size = WinSize,
+      meta_topic_mapping = Mapping, seq_threshold = Threshold}.
 
 seq_check_inst(Topic, SeqCheck) ->
-   SeqCheck#seq_check{meta_topic = Topic}.
+   ReportTopic = build_report_topic(Topic, SeqCheck),
+   SeqCheck#seq_check{meta_topic = Topic, report_topic = ReportTopic}.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
@@ -350,7 +363,8 @@ connect(State = #state{mqtt_opts = Opts, client_id = ClientId}) ->
    Opts1 = Opts ++ Opts0,
 
    {ok, Client} = emqtt:start_link(Opts1),
-   {ok, _Props} = emqtt:connect(Client),
+%%   {ok, _Props} =
+      emqtt:connect(Client),
 %%   lager:notice("connect to mqtt broker gives: ~p",[Client]),
    State#state{client = Client}.
 
