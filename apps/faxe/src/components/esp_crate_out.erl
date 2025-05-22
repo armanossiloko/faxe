@@ -99,7 +99,7 @@ options() ->
       {remaining_fields_as, string, undefined},
       {max_retries, integer, ?FAILED_RETRIES},
       {error_trace, boolean, false},
-      {ignore_response_timeout, boolean, true},
+      {ignore_response_timeout, boolean, false},
       {use_flow_ack, boolean, {amqp, flow_ack, enable}},
       {deduplicate, boolean, true},
       %% connection params for the epgsql client used to fetch schema infos (when db_fields is undefined)

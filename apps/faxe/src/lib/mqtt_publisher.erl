@@ -270,8 +270,8 @@ publish({Topic, Msg}, State = #state{retained = Ret, qos = Qos}) ->
     State :: #state{}) -> term()).
 terminate(_Reason, #state{client = C, pool_caller = Caller}) ->
    disconnected(Caller),
-   emqtt:disconnect(C),
-   emqtt:stop(C).
+   catch emqtt:disconnect(C),
+   catch emqtt:stop(C).
 
 %%--------------------------------------------------------------------
 %% @private
@@ -323,7 +323,7 @@ do_connect(#state{host = Host, port = Port, client_id = ClientId, pool_caller = 
    Opts = opts_ssl(State, Opts1),
 %%   lager:notice("start mqtt client with: ~p",[Opts]),
    {ok, Client} = emqtt:start_link(Opts),
-   {ok, _Props} = emqtt:connect(Client),
+   emqtt:connect(Client),
    State#state{client = Client}.
 
 opts_auth(#state{user = <<>>}, Opts) -> Opts;

@@ -319,7 +319,7 @@
 %%
 
 
-%% @doc sequence check adds meta data with a 'seq' field that is a monotic increasing int and if present, can be evaluated
+%% @doc mqtt_publish node adds meta data with a 'seq' field that is a monotic increasing int and if present, can be evaluated
 %% by mqtt_subscribe node to report on missing/lost datapoints
 {mapping, "seq_check.enable", "faxe.seq_check.enable",
     [{default, on}, {datatype, flag}]
@@ -332,7 +332,7 @@
 
 %% @doc sequence check topic mask
 {mapping, "seq_check.topic_mask", "faxe.seq_check.topic_mask",
-    [{default, "tgw/data/{site}/Mqtt_SeqCheck/{dataformat}"}, {datatype, string}]
+    [{default, "comp/data/{site}/Mqtt_SeqCheck/{dataformat}"}, {datatype, string}]
 }.
 
 %% @doc sequence check topic mapping
