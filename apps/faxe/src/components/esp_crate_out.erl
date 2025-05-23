@@ -248,7 +248,14 @@ handle_info(continue, State = #state{buffer = []}) ->
 handle_info(continue, State = #state{buffer = [Item|Rest]}) ->
    lager:notice("continue with item from buffer"),
    prepare_process(Item, State#state{buffer = Rest});
-handle_info(_Req, State) ->
+handle_info({gun_up, C, http}, State = #state{client = C}) ->
+   lager:info("gun connection is up ~p",[C]),
+   {ok, State};
+handle_info({gun_down, ClientPid , http, closed, _Ref}, State = #state{client = C}) ->
+   lager:notice("gun connection is down : ~p",[{ClientPid, C}]),
+   {ok, State};
+handle_info(Req, State) ->
+   lager:warning("handle_info unexpected : ~p",[Req]),
    {ok, State}.
 
 shutdown(#state{client = C}) ->
@@ -272,7 +279,8 @@ start_client(State = #state{host = Host, port = Port, tls = Tls}) ->
                NewState = State#state{client = C},
                maybe_continue(NewState);
             {error, What} ->
-               lager:warning("error connecting to ~p:~p - ~p | gun info: ~p", [Host, Port, What, gun:info(C)]),
+               lager:warning("error connecting to ~p:~p - ~p", [Host, Port, What]),
+%%               lager:warning("error connecting to ~p:~p - ~p | gun info: ~p", [Host, Port, What, gun:info(C)]),
                recon(State)
          end;
       {error, Err} ->
@@ -328,9 +336,11 @@ do_send(_Item, _Body, MaxFailedRetries, S = #state{failed_retries = MaxFailedRet
    done_sending(S);
 do_send(Item, Body, Retries, State = #state{client = Client, path = Path, headers = Headers}) ->
    Ref = gun:post(Client, Path, Headers, Body),
+%%   lager:info("gun info after post: ~p", [gun:info(Client)]),
    maybe_debug(Body, State),
    case catch(get_response(Client, Ref, State#state.ignore_resp_timeout)) of
       ok ->
+         gun:flush(Client),
          done_sending(State);
       {error, retry_single, ListIndex} ->
          %% try with single data-point and done
