@@ -17,6 +17,15 @@
 -define(P_TYPE_JSON, <<"json">>).
 -define(HEADERS, [{<<"accept">>, <<"application/json,text/plain">>}]).
 
+-define(CONNECT_OPTS, #{
+   connect_timeout => 5000
+}).
+
+-define(CONNECT_OPTS_TLS, (begin ?CONNECT_OPTS end)#{
+   transport => tls,
+   tls_opts => [{verify, verify_none}]
+}).
+
 -record(state, {
    host :: string(),
    port :: non_neg_integer(),
@@ -148,11 +157,10 @@ build(Ts, Data, #state{payload_type = PType, as = As}) ->
 
 start_client(State = #state{host = Host, port = Port, tls = Tls}) ->
    connection_registry:connecting(),
-   Opts = #{connect_timeout => 5000},
    Options =
    case Tls of
-      true -> Opts#{transport => tls};
-      false -> Opts
+      true -> ?CONNECT_OPTS_TLS;
+      false -> ?CONNECT_OPTS
    end,
    {ok, C} = gun:open(Host, Port, Options),
    MonitorRef = erlang:monitor(process, C),

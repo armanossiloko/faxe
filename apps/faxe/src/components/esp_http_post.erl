@@ -13,6 +13,13 @@
 -export([init/3, process/3, options/0, handle_info/2, shutdown/1, metrics/0, check_options/0]).
 
 -define(FAILED_RETRIES, 3).
+-define(CONNECT_OPTS, #{
+   connect_timeout => 5000
+}).
+-define(CONNECT_OPTS_TLS, (begin ?CONNECT_OPTS end)#{
+   transport => tls,
+   tls_opts => [{verify, verify_none}]
+}).
 
 -record(state, {
    host :: string(),
@@ -131,12 +138,11 @@ do_send(Body, Headers, Retries, S = #state{client = Client, path = Path, fn_id =
 
 start_client(State = #state{host = Host, port = Port, tls = Tls}) ->
    connection_registry:connecting(),
-   Opts = #{connect_timeout => 5000},
    Options =
-   case Tls of
-      true -> Opts#{transport => tls};
-      false -> Opts
-   end,
+      case Tls of
+         true -> ?CONNECT_OPTS_TLS;
+         false -> ?CONNECT_OPTS
+      end,
    {ok, C} = gun:open(Host, Port, Options),
    erlang:monitor(process, C),
    case gun:await_up(C) of

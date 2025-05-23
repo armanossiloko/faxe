@@ -34,7 +34,13 @@
 -define(QUERY_TIMEOUT, 5000).
 -define(FAILED_RETRIES, 3).
 
--define(CONNECT_OPTS, #{transport => tls, connect_timeout => 3000}).
+-define(CONNECT_OPTS, #{
+   connect_timeout => 5000
+}).
+-define(CONNECT_OPTS_TLS, (begin ?CONNECT_OPTS end)#{
+   transport => tls,
+   tls_opts => [{verify, verify_none}]
+}).
 
 
 options() ->
@@ -94,11 +100,10 @@ shutdown(#state{client = C}) ->
 
 start_client(State = #state{host = Host, port = Port, tls = Tls}) ->
    connection_registry:connecting(),
-   Opts = #{connect_timeout => 3000},
    Options =
       case Tls of
-         true -> Opts#{transport => tls};
-         false -> Opts
+         true -> ?CONNECT_OPTS_TLS;
+         false -> ?CONNECT_OPTS
       end,
    case gun:open(Host, Port, Options) of
       {ok, C} ->
