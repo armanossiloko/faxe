@@ -39,6 +39,7 @@
   topic                   :: binary(),
   mqtt_connected = false  :: true | false,
   host                    :: string(),
+  port                    :: pos_integer(),
   timer_ref               :: reference(),
   report_interval         :: pos_integer(),
   connection_issues = []  :: list(),
@@ -141,7 +142,7 @@ init([FlowId, GraphPid]) ->
   %%% REPORT TIMER
   Timer = start_timer(ReportInterval),
 
-  {ok, #state{flow_id = FlowId, topic = Topic, host = Host, timer_ref = Timer,
+  {ok, #state{flow_id = FlowId, topic = Topic, host = Host, port = Port, timer_ref = Timer,
     graph = GraphPid, report_interval = ReportInterval}}.
 
 mqtt_opts() ->
@@ -307,8 +308,8 @@ publish(Message, State) ->
   State.
 
 %% do publish calling mqtt pool manager
-do_publish(Message, State = #state{topic = Topic, host = Host}) ->
-  case mqtt_pub_pool_manager:get_connection(Host) of
+do_publish(Message, State = #state{topic = Topic, host = Host, port = Port}) ->
+  case mqtt_pub_pool_manager:get_connection({Host, Port}) of
     {ok, Publisher}  ->
       Publisher ! {publish, {Topic, Message, ?QOS, ?RETAINED}};
     Other ->

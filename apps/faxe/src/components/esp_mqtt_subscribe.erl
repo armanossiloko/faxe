@@ -201,7 +201,7 @@ check_seq(Item = #data_point{fields = #{?META_FIELD := #{<<"topic">> := Topic, <
    {NewList1, NewSeqCheck} =
    case length(NewList) >= MaxSeqBuffer of
       true ->
-         {EvalResult, EvalRest, NSeqCheck} = eval_seq_list(NewList, SeqCheck, State#state.host),
+         {EvalResult, EvalRest, NSeqCheck} = eval_seq_list(NewList, SeqCheck, {State#state.host, State#state.port}),
          {EvalResult ++ EvalRest, NSeqCheck};
       false ->
          {NewList, SeqCheck}
@@ -220,7 +220,7 @@ get_check(Topic, #state{seq_check_template = Template}, _Item) ->
 
 
 eval_seq_list(List, SeqCheck =
-      #seq_check{max_buffer_size = MaxSeqBuff, last_seq = LastSeq, seq_threshold = Threshold}, Host) ->
+      #seq_check{max_buffer_size = MaxSeqBuff, last_seq = LastSeq, seq_threshold = Threshold}, PoolKey) ->
 
 %%   lager:notice("check with ~p",[lager:pr(SeqCheck, ?MODULE)]),
    EvalLen = erlang:round(MaxSeqBuff/4),
@@ -258,7 +258,7 @@ eval_seq_list(List, SeqCheck =
    RemainingList = KeyList -- CheckList,
 %%   lager:notice("~nminkey: ~p ||| check ~w |||| seqlist: ~w |||| missing: ~w, remaining: ~w,  first: ~w, last: ~w, last_seq ~w",
 %%      [MinSeq, CheckList, KeyList, MissingList, RemainingList, First, Last, LastSeq1]),
-   spawn(fun() -> report_seq(MissingList, SeqCheck, Host) end),
+   spawn(fun() -> report_seq(MissingList, SeqCheck, PoolKey) end),
    {RemainingList, RList, SeqCheck#seq_check{last_seq = LastSeq1}}.
 
 
@@ -280,9 +280,9 @@ split_get_keys(N, [H|T], {K, Skipped}, Min) ->
    split_get_keys(N, T, {K, [H|Skipped]}, Min).
 
 
-report_seq(MissingList, SeqCheck, Host) ->
+report_seq(MissingList, SeqCheck, PoolKey) ->
    Reports = build_check_report(MissingList, SeqCheck),
-   send_reports(Reports, Host).
+   send_reports(Reports, PoolKey).
 
 build_check_report([], #seq_check{report_topic_mask = _Topic}) ->
    [];
@@ -312,10 +312,10 @@ build_report_topic(SourceTopic, #seq_check{report_topic_mask = TopicTemplate, me
       end, TopicTemplate, Mask).
 
 
-send_reports([], _Host) ->
+send_reports([], _Key) ->
    ok;
-send_reports(ReportList, Host) ->
-   {ok, Publisher} = mqtt_pub_pool_manager:get_connection(Host),
+send_reports(ReportList, PoolKey) ->
+   {ok, Publisher} = mqtt_pub_pool_manager:get_connection(PoolKey),
    F = fun({Topic, Item}) ->
       Json = flowdata:to_json(Item),
       Publisher ! {publish, {Topic, Json, 1, false}}
