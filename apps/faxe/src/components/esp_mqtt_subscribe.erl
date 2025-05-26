@@ -59,7 +59,8 @@
    mqtt_opts = [],
    %% map of seq check items in use, one per meta topic
    seq_checks = #{},
-   seq_check_template :: #seq_check{}
+   seq_check_template :: #seq_check{},
+   send_pool
 }).
 
 options() -> [
@@ -123,9 +124,9 @@ init({GId, NId}=NodeId, _Ins,
       reconnector = Reconnector1, user = User, pass = Pass, fn_id = NodeId, ssl_opts = ssl_opts(UseSSL)},
    MqttOpts = build_mqtt_opts(State),
    %% mqtt publish is needed, when we do the sequence check
-   mqtt_pub_pool_manager:connect(maps:from_list(MqttOpts)),
+   Pool = mqtt_pub_pool_manager:connect(maps:from_list(MqttOpts)),
    SeqCheckTemplate = seq_check_new(),
-   {ok, State#state{mqtt_opts = MqttOpts, seq_check_template = SeqCheckTemplate}}.
+   {ok, State#state{mqtt_opts = MqttOpts, seq_check_template = SeqCheckTemplate, send_pool = Pool}}.
 
 ssl_opts(false) ->
    [];
@@ -191,7 +192,7 @@ data_received(Topic, Payload,
    {emit, {1, Item}, StateNew}.
 
 check_seq(Item = #data_point{fields = #{?META_FIELD := #{<<"topic">> := Topic, <<"seq">> := Seq} = Meta }},
-    State = #state{seq_checks = SeqChecks}) ->
+    State = #state{seq_checks = SeqChecks, send_pool = PoolKey}) ->
 
    SeqCheck0 = get_check(Topic, State, Item),
    SeqCheck = SeqCheck0#seq_check{last_meta = Meta},
@@ -201,7 +202,7 @@ check_seq(Item = #data_point{fields = #{?META_FIELD := #{<<"topic">> := Topic, <
    {NewList1, NewSeqCheck} =
    case length(NewList) >= MaxSeqBuffer of
       true ->
-         {EvalResult, EvalRest, NSeqCheck} = eval_seq_list(NewList, SeqCheck, {State#state.host, State#state.port}),
+         {EvalResult, EvalRest, NSeqCheck} = eval_seq_list(NewList, SeqCheck, PoolKey),
          {EvalResult ++ EvalRest, NSeqCheck};
       false ->
          {NewList, SeqCheck}

@@ -27,9 +27,11 @@
 %%%===================================================================
 %%% Spawning and gen_server implementation
 %%%===================================================================
-connect(Opts0) ->
+-spec connect(Opts0 :: map()) -> tuple().
+connect(Opts0 = #{host := Host, port := Port}) ->
   Opts = maps:with([host, port, user, pass, ssl, qos, retain], Opts0),
-  ?SERVER ! {ensure_pool, Opts, self()}.
+  ?SERVER ! {ensure_pool, Opts, self()},
+  {Host, Port}.
 
 connection_count(Key) ->
   case ets:lookup(mqtt_pub_pools, Key) of

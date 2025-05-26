@@ -104,8 +104,8 @@ init({_GraphId, _NodeId} = GId, _Ins, #{safe := true}=Opts) ->
 init(NodeId, _Ins, #{use_pool := true, max_mem_queue_size := MemSize} = Opts) ->
    NewOpts = prepare_opts(NodeId, Opts),
 %%   lager:info("use mqtt_pub_pool with opts: ~p",[NewOpts]),
-   mqtt_pub_pool_manager:connect(NewOpts),
-   init_all(NewOpts, #state{fn_id = NodeId, mem_queue = memory_queue:new(MemSize)});
+   MqttPool = mqtt_pub_pool_manager:connect(NewOpts),
+   init_all(NewOpts, #state{fn_id = NodeId, mem_queue = memory_queue:new(MemSize), pool_key = MqttPool});
 init(NodeId, _Ins, #{safe := false} = Opts) ->
    NewOpts = prepare_opts(NodeId, Opts),
    {ok, Publisher} = mqtt_publisher:start_link(NewOpts),
@@ -127,7 +127,7 @@ init_all(
       State#state{
          options = Opts, safe = Safe, topic = Topic, topic_lambda = LTopic, topic_field = TField, use_pool = Pool,
          delete_mode = Delete, meta_fields = Meta, seq_threshold = faxe_config:get_sub(seq_check, max_seq_num, 9999),
-         seq_check_topic_depth = SeqCheckTopicDepth, add_seq_check = AddCheck, pool_key = {Host, Port}}
+         seq_check_topic_depth = SeqCheckTopicDepth, add_seq_check = AddCheck}
    }.
 
 prepare_opts({GId, NId}=GNId, Opts0 = #{client_id := CId, host := Host0, '_delete' := DelMode, retained := Ret}) ->
