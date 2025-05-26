@@ -67,7 +67,7 @@ options() -> [
    {retained, is_set},
    {ssl, is_set, {mqtt, ssl, enable}},
    {safe, boolean, false},
-   {max_mem_queue_size, integer, 300},
+   {max_mem_queue_size, integer, 400},
    {use_pool, boolean, {mqtt_pub_pool, enable}},
    %% experimental delete mode
    {'_delete', boolean, false},
@@ -170,12 +170,11 @@ process(_Inport, Item, State = #state{safe = false, publisher = Publisher, fn_id
 
 %% we only get these, when pool is used
 handle_info({mqtt_connected, _}, State = #state{mem_queue = Q, pool_key = Key}) ->
-   lager:notice("mqtt_pool CONNECTED, resend ~p",[memory_queue:to_list(Q)]),
    {PendingList, NewQ} = memory_queue:to_list_reset(Q),
+   lager:notice("mqtt_pool CONNECTED, resend ~p",[length(PendingList)]),
    case PendingList of
       [] -> ok;
       L when is_list(L) ->
-         lager:info(ets:tab2list(mqtt_pub_pools)),
          {ok, Publisher} = mqtt_pub_pool_manager:get_connection(Key),
          [Publisher ! M || M <- PendingList]
    end,
