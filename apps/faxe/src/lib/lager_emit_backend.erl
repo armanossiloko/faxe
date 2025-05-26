@@ -73,7 +73,7 @@ handle_event({log, Message}, State = #state{level = Level, flow_ids = Flows}) ->
          MetaData = lager_msg:metadata(Message),
          case proplists:get_value(flow, MetaData) of
             undefined  ->
-               lager:notice("no flow for msg ~p",[Message]),
+               lager:notice("no flow for msg ~w",[Message]),
                ok;
             FlowId ->
                case lists:member(FlowId, Flows) of
