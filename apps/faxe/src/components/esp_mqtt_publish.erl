@@ -170,7 +170,7 @@ process(_Inport, Item, State = #state{safe = false, publisher = Publisher, fn_id
 
 %% we only get these, when pool is used
 handle_info({mqtt_connected, _}, State = #state{mem_queue = Q, pool_key = Key}) ->
-   lager:info("mqtt_pool CONNECTED, resend ~p",[memory_queue:to_list(Q)]),
+   lager:notice("mqtt_pool CONNECTED, resend ~p",[memory_queue:to_list(Q)]),
    {PendingList, NewQ} = memory_queue:to_list_reset(Q),
    case PendingList of
       [] -> ok;
@@ -182,7 +182,7 @@ handle_info({mqtt_connected, _}, State = #state{mem_queue = Q, pool_key = Key}) 
    connection_registry:connected(),
    {ok, State#state{pool_connected = true, mem_queue = NewQ}};
 handle_info({mqtt_disconnected, _}, State) ->
-   lager:info("mqtt_pool DISCONNECTED"),
+   lager:notice("mqtt_pool DISCONNECTED"),
    connection_registry:disconnected(),
    {ok, State#state{pool_connected = false}};
 
