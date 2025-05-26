@@ -25,7 +25,8 @@
   monitors,
   pool_index,
   waiting_cons = [],
-  last_rate = 0
+  last_rate = 0,
+  key
 }).
 
 %% default configs
@@ -58,7 +59,8 @@ init(#{host := Ip, port := Port} = Opts0) ->
     pool_index = 1,
     initial_size = Initial,
     max_size = MaxSize,
-    max_worker_rate = MaxWorkerRate
+    max_worker_rate = MaxWorkerRate,
+    key = {Ip, Port}
     },
 
   start_rate_timeout(),
@@ -71,7 +73,7 @@ handle_call(get_rate, _From, State = #state{last_rate = Rate}) ->
 handle_cast(_Request, State = #state{}) ->
   {noreply, State}.
 
-handle_info(check_rate, State = #state{opts = #{host := Key}, max_worker_rate = MaxRate}) ->
+handle_info(check_rate, State = #state{key = Key, max_worker_rate = MaxRate}) ->
   CurrentRate = get_rate(Key),
   WorkerCount = mqtt_pub_pool_manager:connection_count(Key),
 %%  WorkerRate = ceil(CurrentRate / WorkerCount),
@@ -99,7 +101,7 @@ handle_info(check_rate, State = #state{opts = #{host := Key}, max_worker_rate = 
   mqtt_pub_pool_manager:reset_counter(Key),
   {noreply, NewState#state{last_rate = CurrentRate}};
 handle_info({mqtt_connected, Worker},
-    State = #state{pool = Pool, waiting_cons = Waiting, opts = #{host := Ip}}) ->
+    State = #state{pool = Pool, waiting_cons = Waiting, key = Key}) ->
 
   NewState =
   case lists:member(Worker, Waiting) of
@@ -110,7 +112,7 @@ handle_info({mqtt_connected, Worker},
   end,
   update_pool(NewState),
   case length(NewState#state.pool) > 0 of
-    true -> mqtt_pub_pool_manager ! {up, Ip};
+    true -> mqtt_pub_pool_manager ! {up, Key};
     false -> ok
   end,
 %%  lager:alert("[~p] Pool: ~p, Waiting: ~p",[?MODULE, NewState#state.pool, NewState#state.waiting_cons]),
@@ -192,12 +194,12 @@ remove_all(State) ->
   S = remove_worker(State),
   remove_all(S).
 
-update_pool(#state{opts = #{host := Ip}, pool = Pool}) ->
+update_pool(#state{key = Key, pool = Pool}) ->
   case Pool of
-    [] -> mqtt_pub_pool_manager ! {down, Ip};
+    [] -> mqtt_pub_pool_manager ! {down, Key};
     _ -> ok
   end,
-  ets:insert(mqtt_pub_pools, {Ip, Pool}).
+  ets:insert(mqtt_pub_pools, {Key, Pool}).
 
 stop_worker(Pid) ->
   case is_pid(Pid) andalso is_process_alive(Pid) of

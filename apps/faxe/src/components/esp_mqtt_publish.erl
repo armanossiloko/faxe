@@ -42,6 +42,7 @@
    debug_mode = false,
    use_pool = false :: true|false,
    pool_connected = false :: true|false,
+   pool_key :: tuple(),
    delete_mode = false, %% if true, an empty message will be published instead of the actual message, this leads to del topic (retained)
 %%   seq_num = 1,
    add_seq_check = true,
@@ -103,8 +104,8 @@ init({_GraphId, _NodeId} = GId, _Ins, #{safe := true}=Opts) ->
 init(NodeId, _Ins, #{use_pool := true, max_mem_queue_size := MemSize} = Opts) ->
    NewOpts = prepare_opts(NodeId, Opts),
 %%   lager:info("use mqtt_pub_pool with opts: ~p",[NewOpts]),
-   mqtt_pub_pool_manager:connect(NewOpts),
-   init_all(NewOpts, #state{fn_id = NodeId, mem_queue = memory_queue:new(MemSize)});
+   MqttPool = mqtt_pub_pool_manager:connect(NewOpts),
+   init_all(NewOpts, #state{fn_id = NodeId, mem_queue = memory_queue:new(MemSize), pool_key = MqttPool});
 init(NodeId, _Ins, #{safe := false} = Opts) ->
    NewOpts = prepare_opts(NodeId, Opts),
    {ok, Publisher} = mqtt_publisher:start_link(NewOpts),
@@ -150,10 +151,10 @@ process(_Inport, Item,
 %%   lager:info("mem queue msg, because pool not connected ~p",[M]),
    NewMemQ = memory_queue:enq(M, MemQ),
    {ok, State#state{mem_queue = NewMemQ}};
-process(_Inport, Item, State = #state{safe = false, use_pool = true, fn_id = FNId,
-      options = #{host := Host, qos := Qos, retained := Ret}}) ->
+process(_Inport, Item, State = #state{safe = false, use_pool = true, fn_id = FNId, pool_key = Key,
+      options = #{qos := Qos, retained := Ret}}) ->
 %%   lager:alert("~p got item ~p",[?MODULE, Item]),
-   {ok, Publisher} = mqtt_pub_pool_manager:get_connection(Host),
+   {ok, Publisher} = mqtt_pub_pool_manager:get_connection(Key),
    {Topic, Item1, NewState} = build_item(Item, State),
    {Topic, Message} = build_message(Item1, Topic, NewState),
    Publisher ! {publish, {Topic, Message, Qos, Ret}},
@@ -168,14 +169,14 @@ process(_Inport, Item, State = #state{safe = false, publisher = Publisher, fn_id
    {ok, NewState}.
 
 %% we only get these, when pool is used
-handle_info({mqtt_connected, _}, State = #state{mem_queue = Q, options = #{host := Host}}) ->
+handle_info({mqtt_connected, _}, State = #state{mem_queue = Q, pool_key = Key}) ->
    lager:info("mqtt_pool CONNECTED, resend ~p",[memory_queue:to_list(Q)]),
    {PendingList, NewQ} = memory_queue:to_list_reset(Q),
    case PendingList of
       [] -> ok;
       L when is_list(L) ->
          lager:info(ets:tab2list(mqtt_pub_pools)),
-         {ok, Publisher} = mqtt_pub_pool_manager:get_connection(Host),
+         {ok, Publisher} = mqtt_pub_pool_manager:get_connection(Key),
          [Publisher ! M || M <- PendingList]
    end,
    connection_registry:connected(),
@@ -192,8 +193,6 @@ handle_info(_E, S) ->
 
 shutdown(#state{publisher = P}) ->
    catch gen_server:stop(P).
-
-
 
 build_item(Item, State) ->
    Topic = get_topic(Item, State),

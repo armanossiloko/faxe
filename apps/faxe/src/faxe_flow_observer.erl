@@ -39,10 +39,12 @@
   topic                   :: binary(),
   mqtt_connected = false  :: true | false,
   host                    :: string(),
+  port                    :: pos_integer(),
   timer_ref               :: reference(),
   report_interval         :: pos_integer(),
   connection_issues = []  :: list(),
-  message_buffer = []     :: list()
+  message_buffer = []     :: list(),
+  mqtt_pool               :: term()
 }).
 %%
 %%  MQTT Topic structure:
@@ -132,7 +134,7 @@ init([FlowId, GraphPid]) ->
 
   connection_registry:reg({<<"sys">>, <<"sys">>}, Host, Port, <<"mqtt">>),
   %% use mqtt publisher pool !!
-  mqtt_pub_pool_manager:connect(MqttOpts),
+  MqttPool = mqtt_pub_pool_manager:connect(MqttOpts),
 
   %%% TOPIC
   Topic = faxe_util:build_topic([topic_base(BaseTopic), FlowId]),
@@ -141,8 +143,8 @@ init([FlowId, GraphPid]) ->
   %%% REPORT TIMER
   Timer = start_timer(ReportInterval),
 
-  {ok, #state{flow_id = FlowId, topic = Topic, host = Host, timer_ref = Timer,
-    graph = GraphPid, report_interval = ReportInterval}}.
+  {ok, #state{flow_id = FlowId, topic = Topic, host = Host, port = Port, timer_ref = Timer,
+    graph = GraphPid, report_interval = ReportInterval, mqtt_pool = MqttPool}}.
 
 mqtt_opts() ->
   MqttOpts0 = faxe_config:get(mqtt, []),
@@ -307,8 +309,8 @@ publish(Message, State) ->
   State.
 
 %% do publish calling mqtt pool manager
-do_publish(Message, State = #state{topic = Topic, host = Host}) ->
-  case mqtt_pub_pool_manager:get_connection(Host) of
+do_publish(Message, State = #state{topic = Topic, mqtt_pool = PoolKey}) ->
+  case mqtt_pub_pool_manager:get_connection(PoolKey) of
     {ok, Publisher}  ->
       Publisher ! {publish, {Topic, Message, ?QOS, ?RETAINED}};
     Other ->

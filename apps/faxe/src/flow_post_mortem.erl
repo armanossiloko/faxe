@@ -22,7 +22,7 @@
 -define(QOS, 0).
 -define(RETAINED, false).
 
--record(state, {interval, base_topic, host}).
+-record(state, {interval, base_topic, mqtt_pool}).
 
 %%%===================================================================
 %%% Spawning and gen_server implementation
@@ -32,13 +32,13 @@ start_link() ->
   gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 init([]) ->
-  MqttOpts = #{base_topic := BaseTopic0, host := Host} = faxe_flow_observer:mqtt_opts(),
+  MqttOpts = #{base_topic := BaseTopic0, host := Host, port := Port} = faxe_flow_observer:mqtt_opts(),
   BaseTopic = faxe_flow_observer:topic_base(BaseTopic0),
   %% use mqtt publisher pool !!
-  mqtt_pub_pool_manager:connect(MqttOpts),
+  Pool = mqtt_pub_pool_manager:connect(MqttOpts),
   ReportInterval = ?INTERVAL,
   start_timer(ReportInterval),
-  {ok, #state{interval = ReportInterval, base_topic = BaseTopic, host = Host}}.
+  {ok, #state{interval = ReportInterval, base_topic = BaseTopic, mqtt_pool = Pool}}.
 
 handle_call(_Request, _From, State = #state{}) ->
   {reply, ok, State}.
@@ -46,9 +46,9 @@ handle_call(_Request, _From, State = #state{}) ->
 handle_cast(_Request, State = #state{}) ->
   {noreply, State}.
 
-handle_info(send, State = #state{interval = Interval, base_topic = BaseTopic, host = Host}) ->
+handle_info(send, State = #state{interval = Interval, base_topic = BaseTopic, mqtt_pool = Key}) ->
   start_timer(Interval),
-  [send(topic(FlowId, BaseTopic), Host) || FlowId <- get_stopped_flows()],
+  [send(topic(FlowId, BaseTopic), Key) || FlowId <- get_stopped_flows()],
   {noreply, State};
 handle_info(_Info, State = #state{}) ->
   {noreply, State}.
@@ -71,8 +71,8 @@ get_stopped_flows() ->
 topic(FlowId,  BaseTopic) ->
   faxe_util:build_topic([BaseTopic, FlowId]).
 
-send(Topic, Host) ->
-  case mqtt_pub_pool_manager:get_connection(Host) of
+send(Topic, PoolKey) ->
+  case mqtt_pub_pool_manager:get_connection(PoolKey) of
     {ok, Publisher}  ->
       Publisher ! {publish, {Topic, ?MESSAGE, ?QOS, ?RETAINED}};
     _Other ->
