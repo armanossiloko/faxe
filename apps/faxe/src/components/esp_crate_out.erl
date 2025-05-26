@@ -71,8 +71,10 @@
 -define(FAILED_RETRY_INTERVAL, 1000).
 
 -define(CONNECT_OPTS, #{
-   connect_timeout => faxe_config:get_sub(crate_http, connection_timeout)
-   }).
+   connect_timeout => faxe_config:get_sub(crate_http, connection_timeout),
+   initial_connection_window_size => 65535,
+   initial_stream_window_size => 0
+}).
 -define(CONNECT_OPTS_TLS, (begin ?CONNECT_OPTS end)#{
    transport => tls,
    tls_opts => [{verify, verify_none}]
@@ -274,8 +276,8 @@ start_client(State = #state{host = Host, port = Port, tls = Tls}) ->
                NewState = State#state{client = C},
                maybe_continue(NewState);
             {error, What} ->
-               lager:warning("error connecting to ~p:~p - ~p", [Host, Port, What]),
-%%               lager:warning("error connecting to ~p:~p - ~p | gun info: ~p", [Host, Port, What, gun:info(C)]),
+%%               lager:warning("error connecting to ~p:~p - ~p", [Host, Port, What]),
+               lager:warning("error connecting to ~p:~p - ~p | gun info: ~p", [Host, Port, What, gun:info(C)]),
                recon(State)
          end;
       {error, Err} ->
