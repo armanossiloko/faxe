@@ -325,7 +325,8 @@ start_connection(State = #state{config = Config, reconnector = Recon, safe_mode 
                State#state{available = false, reconnector = Reconnector}
          end;
       E ->
-         lager:warning("Error starting amqp connection: ~p :: ~p",[Config, E]),
+         lager:warning("Error starting amqp connection: ~p :: ~p",
+            [Config#amqp_params_network{password = <<>>}, E]),
          {ok, Reconnector} = faxe_backoff:execute(Recon, connect),
          State#state{available = false, reconnector = Reconnector}
    end,
