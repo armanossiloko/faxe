@@ -171,7 +171,8 @@ process(_Inport, Item, State = #state{safe = false, publisher = Publisher, fn_id
 %% we only get these, when pool is used
 handle_info({mqtt_connected, _}, State = #state{mem_queue = Q, pool_key = Key}) ->
    {PendingList, NewQ} = memory_queue:to_list_reset(Q),
-   lager:notice("mqtt_pool CONNECTED, resend ~p",[length(PendingList)]),
+   lager:notice("mqtt_pool CONNECTED, resend ~p (~p bytes)",
+      [length(PendingList), erlang_term:byte_size(PendingList)]),
    case PendingList of
       [] -> ok;
       L when is_list(L) ->

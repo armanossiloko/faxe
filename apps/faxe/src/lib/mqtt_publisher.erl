@@ -197,7 +197,7 @@ handle_info({mqttc, _C, connected},
     State=#state{queue = undefined, mem_queue = Q, host = Host, pool_caller = Caller}) ->
 
    {PendingList, NewQ} = memory_queue:to_list_reset(Q),
-   lager:notice("mqtt client connected to ~p resend: ~p",[Host, length(PendingList)]),
+   lager:notice("mqtt client connected to ~p resend: ~p (~p bytes)",[Host, length(PendingList), erlang_term:byte_size(PendingList)]),
    NewState = State#state{connected = true, mem_queue = NewQ},
    [publish(M, NewState) || M <- PendingList],
    connected(Caller),
