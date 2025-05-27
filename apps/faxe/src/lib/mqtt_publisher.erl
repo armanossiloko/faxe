@@ -36,7 +36,7 @@
    ssl_opts = [],
    queue,
    mem_queue :: memory_queue:mem_queue(),
-   max_mem_queue_len = 300,
+   max_mem_queue_len = 400,
    reconnector :: faxe_backoff:backoff(),
    node_id,
    client_id,

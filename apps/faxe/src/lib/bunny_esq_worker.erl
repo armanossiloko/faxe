@@ -12,7 +12,7 @@
 -define(DELIVERY_MODE_NON_PERSISTENT, 1).
 -define(DEQ_INTERVAL, 15).
 -define(MAX_CHANNEL_NUMBER, 65535).
--define(MEM_Q_SIZE, 400).
+-define(MEM_Q_SIZE, 700).
 
 -record(state, {
    reconnector          = undefined,

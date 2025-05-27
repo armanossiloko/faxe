@@ -67,7 +67,7 @@ options() -> [
    {retained, is_set},
    {ssl, is_set, {mqtt, ssl, enable}},
    {safe, boolean, false},
-   {max_mem_queue_size, integer, 400},
+   {max_mem_queue_size, integer, 700},
    {use_pool, boolean, {mqtt_pub_pool, enable}},
    %% experimental delete mode
    {'_delete', boolean, false},

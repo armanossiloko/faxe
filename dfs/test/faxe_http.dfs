@@ -11,7 +11,7 @@ def path2 = '/faxe_stats'
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 def path = '/v1/stats/faxe'
-def host = '127.0.0.1'
+def host = 'localhost'
 def port = 8081
 
 %% call faxe's own rest api, and get some stats fields
