@@ -223,8 +223,7 @@ get_check(Topic, #state{seq_check_template = Template}, _Item) ->
 eval_seq_list(List, SeqCheck =
       #seq_check{max_buffer_size = MaxSeqBuff, last_seq = LastSeq, seq_threshold = Threshold}, PoolKey) ->
 
-%%   lager:notice("check with ~p",[lager:pr(SeqCheck, ?MODULE)]),
-   EvalLen = erlang:round(MaxSeqBuff/4),
+   EvalLen = erlang:round(MaxSeqBuff/5),
    %% get the ordered list of all
    SeqListAll = ordsets:to_list(ordsets:from_list(List)),
    %% split the list and at the same time, get the keys from the left list
@@ -241,7 +240,7 @@ eval_seq_list(List, SeqCheck =
          {0, [], []}
    end,
    case length(KeyList) < EvalLen of
-      true -> lager:warning("keylist is shorten than evalLen with ~w minseq: ~p",[SeqListAll, MinSeq]);
+      true -> lager:warning("keylist is shorter than evalLen (~p) with ~w minseq: ~p",[EvalLen, SeqListAll, MinSeq]);
       false -> ok
    end,
    First = case MinSeq of undefined -> First0; _ -> case MinSeq+1 >= Threshold of true -> 1; false -> MinSeq+1 end end,

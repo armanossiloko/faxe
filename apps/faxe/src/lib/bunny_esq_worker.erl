@@ -12,6 +12,7 @@
 -define(DELIVERY_MODE_NON_PERSISTENT, 1).
 -define(DEQ_INTERVAL, 15).
 -define(MAX_CHANNEL_NUMBER, 65535).
+-define(MEM_Q_SIZE, 400).
 
 -record(state, {
    reconnector          = undefined,
@@ -73,7 +74,7 @@ init([Queue, Config]) ->
    SafeMode = maps:get(safe_mode, Config, false),
    Exchange = maps:get(exchange, Config),
    DeliveryMode = case maps:get(persistent, Config, false) of true -> 2; false -> 1 end,
-   MemQ = case Queue of undefined -> memory_queue:new(); _ -> undefined end,
+   MemQ = case Queue of undefined -> memory_queue:new(?MEM_Q_SIZE); _ -> undefined end,
    AdaptInt = adaptive_interval:new(),
 %%   lager:info("adaptive interval: ~p",[lager:pr(AdaptInt, adaptive_interval)]),
    {ok, #state{
