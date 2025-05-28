@@ -180,7 +180,7 @@ data_received(Topic, Payload,
    node_metrics:metric(?METRIC_BYTES_READ, byte_size(Payload), S#state.fn_id),
    node_metrics:metric(?METRIC_ITEMS_IN, 1, S#state.fn_id),
    Item0 = flowdata:from_json_struct(Payload, DTField, DTFormat),
-   {_T, StateNew} = timer:tc(fun check_seq/2, [Item0, S]),
+   {_T, StateNew} = timer:tc(fun check_seq/3, [Item0, Topic, S]),
 %%   case T > 100 of true -> lager:warning("time for check_seq: ~pmy",[T]); _ -> ok end,
    dataflow:maybe_debug(item_in, 1, Item0, StateNew#state.fn_id, StateNew#state.debug_mode),
    Item1 =
@@ -191,10 +191,12 @@ data_received(Topic, Payload,
    Item = flowdata:set_root(Item1, As),
    {emit, {1, Item}, StateNew}.
 
-check_seq(Item = #data_point{fields = #{?META_FIELD := #{<<"topic">> := Topic, <<"seq">> := Seq} = Meta }},
+check_seq(
+    Item = #data_point{fields = #{?META_FIELD := #{<<"topic">> := Topic, <<"seq">> := Seq} = Meta }},
+    FullTopic,
     State = #state{seq_checks = SeqChecks, send_pool = PoolKey}) ->
 
-   SeqCheck0 = get_check(Topic, State, Item),
+   SeqCheck0 = get_check(FullTopic, Topic, State, Item),
    SeqCheck = SeqCheck0#seq_check{last_meta = Meta},
    MaxSeqBuffer = SeqCheck#seq_check.max_buffer_size,
    List = SeqCheck#seq_check.seq_buffer,
@@ -208,15 +210,16 @@ check_seq(Item = #data_point{fields = #{?META_FIELD := #{<<"topic">> := Topic, <
          {NewList, SeqCheck}
    end,
    NewSeqCheck1 = NewSeqCheck#seq_check{seq_buffer = NewList1},
-   State#state{seq_checks = SeqChecks#{Topic => NewSeqCheck1}};
-check_seq(_Item, State) ->
+   State#state{seq_checks = SeqChecks#{FullTopic => NewSeqCheck1}};
+check_seq(_Item, _Topic, State) ->
    State.
 
-get_check(Topic, #state{seq_check_template = Template}, #data_point{fields = #{?META_FIELD := #{<<"started">> := true}}}) ->
+get_check(_FullTopic, Topic, #state{seq_check_template = Template},
+    #data_point{fields = #{?META_FIELD := #{<<"started">> := true}}}) ->
    seq_check_inst(Topic, Template);
-get_check(Topic, #state{seq_checks = SeqChecks}, _Item) when is_map_key(Topic, SeqChecks) ->
-   maps:get(Topic, SeqChecks);
-get_check(Topic, #state{seq_check_template = Template}, _Item) ->
+get_check(FullTopic, _Topic, #state{seq_checks = SeqChecks}, _Item) when is_map_key(FullTopic, SeqChecks) ->
+   maps:get(FullTopic, SeqChecks);
+get_check(_FullTopic, Topic, #state{seq_check_template = Template}, _Item) ->
    seq_check_inst(Topic, Template).
 
 
