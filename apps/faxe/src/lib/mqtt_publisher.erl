@@ -209,7 +209,7 @@ handle_info({mqttc, _C, connected}, State=#state{pool_caller = Caller}) ->
    {noreply, NewState};
 handle_info({mqttc, _C,  disconnected}, State=#state{pool_caller = Caller}) ->
 %%   catch exit(Client, kill),
-   lager:notice("mqtt client disconnected"),
+%%   lager:notice("mqtt client disconnected"),
    disconnected(Caller),
    {noreply, State#state{connected = false}};
 handle_info(deq, State=#state{}) ->
