@@ -79,7 +79,7 @@
    http_opts => #{
       keepalive => 30 * 1000
    },
-   retry => 100,
+   retry => 1,
    retry_timeout => 1000 % 1s
    ,
    connect_timeout => faxe_config:get_sub(crate_http, connection_timeout)
@@ -278,16 +278,26 @@ start_client(State = #state{host = Host, port = Port, tls = Tls}) ->
       end,
    case gun:open(Host, Port, Options) of
       {ok, C} ->
-         erlang:monitor(process, C),
+         MonRef = erlang:monitor(process, C),
          case gun:await_up(C) of
-            {ok, _} ->
+            {ok, _Protocol} ->
                lager:notice("gun info ~p",[gun:info(C)]),
+               OptsRef = gun:options(C, ?PATH),
+               case gun:await(C, OptsRef) of
+                  {response, nofin, _Status, _Hds} ->
+                     {ok, Body} = gun:await_body(C, OptsRef),
+                     lager:notice("gun options ~p",[Body]);
+                  _ -> ok
+               end,
+
                connection_registry:connected(),
                NewState = State#state{client = C},
                maybe_continue(NewState);
             {error, What} ->
 %%               lager:warning("error connecting to ~p:~p - ~p", [Host, Port, What]),
-               lager:warning("error connecting to ~p:~p - ~p | gun info: ~p", [Host, Port, What, gun:info(C)]),
+               erlang:demonitor(MonRef, [flush]),
+               lager:warning("error connecting to ~p:~p - ~p", [Host, Port, What]),
+               catch gun:close(C),
                recon(State)
          end;
       {error, Err} ->
