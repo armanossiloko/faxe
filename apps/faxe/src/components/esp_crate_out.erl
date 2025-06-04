@@ -320,9 +320,10 @@ send(Item, State = #state{query = Q, faxe_fields = Fields, remaining_fields_as =
    NewState = do_send(Item, Query, 0, State#state{last_error = undefined, pending_data = PendingData}),
    T = erlang:monotonic_time(second)-T0,
    MBytes = faxe_util:bytes(Query),
-   case T > 3 of true -> lager:warning("~p sent ~p bytes in ~p sec", [?MODULE, MBytes, T]); _ -> ok end,
+   case T > 5 of true -> lager:warning("~p sent ~p bytes in ~p sec", [?MODULE, MBytes, T]); _ -> ok end,
    node_metrics:metric(?METRIC_BYTES_SENT, MBytes, State#state.fn_id),
    node_metrics:metric(?METRIC_ITEMS_OUT, 1, State#state.fn_id),
+   dataflow:maybe_debug(item_out, 1, Item, State#state.fn_id, State#state.debug_mode),
    NewState.
 
 maybe_resend_single(_Item, State = #state{single_resend = true}) ->
@@ -391,7 +392,7 @@ maybe_continue(State = #state{}) ->
 
 maybe_debug(_Contents, #state{debug_mode = false}) ->
    ok;
-maybe_debug(Contents, #state{}) ->
+maybe_debug(Contents, #state{fn_id = _FNId}) ->
    lager:notice("Crate query: ~p", [Contents]).
 
 %% bind values to the statement
