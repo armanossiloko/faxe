@@ -21,18 +21,6 @@
 
 -define(META_FIELD, <<"_meta">>).
 
--record(seq_check, {
-   seq_buffer = [],
-   max_buffer_size = 30,
-   last_meta = #{},
-   report_topic_mask = <<"tgw/data/{site}/Mqtt_Metric/{dataformat}">>,
-   report_topic,
-   meta_topic_mapping = #{3 => <<"{site}">>, 4 => <<"{dataformat}">>, 5 => <<"blupp">>},
-   last_seq,
-   meta_topic,
-   seq_threshold
-}).
-
 %% state for direct publish mode
 -record(state, {
    client,
@@ -203,6 +191,8 @@ check_seq(
     Item = #data_point{fields = #{?META_FIELD := #{<<"topic">> := Topic, <<"seq">> := Seq} = Meta }},
     FullTopic,
     State = #state{seq_checks = SeqChecks, send_pool = PoolKey}) ->
+
+%%   faxe_seq_check_manager:handle(Topic, Item),
 
    SeqCheck0 = get_check(FullTopic, Topic, State, Item),
    SeqCheck = SeqCheck0#seq_check{last_meta = Meta},

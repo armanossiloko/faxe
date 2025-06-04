@@ -71,6 +71,17 @@
 -define(FAILED_RETRY_INTERVAL, 1000).
 
 -define(CONNECT_OPTS, #{
+   http2_opts => #{
+      keepalive => 60 * 1000,
+      initial_connection_window_size => 65535,
+      initial_stream_window_size => 65535
+   },
+   http_opts => #{
+      keepalive => 30 * 1000
+   },
+   retry => 100,
+   retry_timeout => 1000 % 1s
+   ,
    connect_timeout => faxe_config:get_sub(crate_http, connection_timeout)
 }).
 -define(CONNECT_OPTS_TLS, (begin ?CONNECT_OPTS end)#{
@@ -244,7 +255,7 @@ handle_info(continue, State = #state{buffer = [Item|Rest]}) ->
    lager:notice("continue with item from buffer"),
    prepare_process(Item, State#state{buffer = Rest});
 handle_info({gun_up, C, http}, State = #state{client = C}) ->
-   lager:info("gun connection is up ~p",[C]),
+   lager:notice("gun connection is up ~p",[C]),
    {ok, State};
 handle_info({gun_down, ClientPid , http, closed, _Ref}, State = #state{client = C}) ->
    lager:notice("gun connection is down : ~p",[{ClientPid, C}]),
@@ -270,6 +281,7 @@ start_client(State = #state{host = Host, port = Port, tls = Tls}) ->
          erlang:monitor(process, C),
          case gun:await_up(C) of
             {ok, _} ->
+               lager:notice("gun info ~p",[gun:info(C)]),
                connection_registry:connected(),
                NewState = State#state{client = C},
                maybe_continue(NewState);

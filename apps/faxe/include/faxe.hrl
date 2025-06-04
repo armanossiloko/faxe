@@ -100,4 +100,17 @@
 }).
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-record(seq_check, {
+  seq_buffer = [],
+  max_buffer_size = 30,
+  last_meta = #{},
+  report_topic_mask = <<"root/data/{site}/Mqtt_Metric/{dataformat}">>,
+  report_topic,
+  meta_topic_mapping = #{3 => <<"{site}">>, 4 => <<"{dataformat}">>, 5 => <<"blupp">>},
+  last_seq,
+  meta_topic,
+  seq_threshold
+}).
+
 
