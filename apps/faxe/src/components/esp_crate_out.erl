@@ -282,14 +282,6 @@ start_client(State = #state{host = Host, port = Port, tls = Tls}) ->
          case gun:await_up(C) of
             {ok, _Protocol} ->
                lager:notice("gun info ~p",[gun:info(C)]),
-               OptsRef = gun:options(C, ?PATH),
-               case gun:await(C, OptsRef) of
-                  {response, nofin, _Status, _Hds} ->
-                     {ok, Body} = gun:await_body(C, OptsRef),
-                     lager:notice("gun options ~p",[Body]);
-                  _ -> ok
-               end,
-
                connection_registry:connected(),
                NewState = State#state{client = C},
                maybe_continue(NewState);
