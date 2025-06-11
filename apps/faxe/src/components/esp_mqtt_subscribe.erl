@@ -171,9 +171,10 @@ data_received(Topic, Payload,
    node_metrics:metric(?METRIC_BYTES_READ, byte_size(Payload), S#state.fn_id),
    node_metrics:metric(?METRIC_ITEMS_IN, 1, S#state.fn_id),
    Item0 = flowdata:from_json_struct(Payload, DTField, DTFormat),
-   {_T, StateNew} = timer:tc(fun check_seq/3, [Item0, Topic, S]),
-%%   case T > 100 of true -> lager:warning("time for check_seq: ~pmy",[T]); _ -> ok end,
-   dataflow:maybe_debug(item_in, 1, Item0, StateNew#state.fn_id, StateNew#state.debug_mode),
+%%   {_T, StateNew} = timer:tc(fun check_seq/3, [Item0, Topic, S]),
+   {_T, _} = timer:tc(faxe_seq_check_manager, handle, [Item0]),
+%%   case T > 10 of true -> lager:warning("time for check_seq: ~pmy",[T]); _ -> ok end,
+   dataflow:maybe_debug(item_in, 1, Item0, S#state.fn_id, S#state.debug_mode),
    Item1 =
    case AddTopic of
       true -> flowdata:set_field(Item0, TopicKey, Topic);
@@ -185,14 +186,12 @@ data_received(Topic, Payload,
       false -> Item1
    end,
    Item = flowdata:set_root(Item2, As),
-   {emit, {1, Item}, StateNew}.
+   {emit, {1, Item}, S}.
 
 check_seq(
     Item = #data_point{fields = #{?META_FIELD := #{<<"topic">> := Topic, <<"seq">> := Seq} = Meta }},
     FullTopic,
     State = #state{seq_checks = SeqChecks, send_pool = PoolKey}) ->
-
-%%   faxe_seq_check_manager:handle(Topic, Item),
 
    SeqCheck0 = get_check(FullTopic, Topic, State, Item),
    SeqCheck = SeqCheck0#seq_check{last_meta = Meta},
@@ -344,7 +343,7 @@ seq_check_new() ->
 
 seq_check_inst(Topic, SeqCheck) ->
    ReportTopic = build_report_topic(Topic, SeqCheck),
-   SeqCheck#seq_check{meta_topic = Topic, report_topic = ReportTopic}.
+   SeqCheck#seq_check{report_topic = ReportTopic}.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 

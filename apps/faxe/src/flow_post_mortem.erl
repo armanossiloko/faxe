@@ -32,7 +32,7 @@ start_link() ->
   gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 init([]) ->
-  MqttOpts = #{base_topic := BaseTopic0, host := Host, port := Port} = faxe_flow_observer:mqtt_opts(),
+  MqttOpts = #{base_topic := BaseTopic0} = faxe_flow_observer:mqtt_opts(),
   BaseTopic = faxe_flow_observer:topic_base(BaseTopic0),
   %% use mqtt publisher pool !!
   Pool = mqtt_pub_pool_manager:connect(MqttOpts),

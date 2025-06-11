@@ -9,7 +9,7 @@
 
 -behaviour(gen_server).
 
--export([start_link/0, connect/1, connection_count/1, get_connection/1, reset_counter/1, get_counter/1, get_clients/1]).
+-export([start_link/0, connect/1, connection_count/1, get_connection/1, reset_counter/1, get_counter/1, get_clients/1, connect/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
   code_change/3]).
 
@@ -27,7 +27,20 @@
 %%%===================================================================
 %%% Spawning and gen_server implementation
 %%%===================================================================
+
+
+%% @doc connect with the standard mqtt options
+%% @returns Key :: tuple()
+-spec connect() -> tuple().
+connect() ->
+  MqttOpts0 = faxe_config:get(mqtt, []),
+  MqttOpts = maps:from_list(MqttOpts0),
+  connect(MqttOpts).
+
 -spec connect(Opts0 :: map()) -> tuple().
+%% @doc ensure a mqtt publish pool is established
+%% @param Opts0 Mqtt connect options
+%% @returns The pool key for later use
 connect(Opts0 = #{host := Host, port := Port}) ->
   Opts = maps:with([host, port, user, pass, ssl, qos, retain], Opts0),
   ?SERVER ! {ensure_pool, Opts, self()},

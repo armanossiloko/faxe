@@ -345,6 +345,21 @@
     [{default, 50}, {datatype, integer}]
 }.
 
+%% @doc sequence check - min size of buffer to consider evaluation (only when max_time_gap is exceeded)
+{mapping, "seq_check.min_eval_size", "faxe.seq_check.min_eval_size",
+    [{default, 5}, {datatype, integer}]
+}.
+
+%% @doc sequence check - max time between two evaluations of the sequence
+{mapping, "seq_check.eval_timeout", "faxe.seq_check.eval_timeout",
+    [{default, "3m"}, {datatype, {duration, ms}}]
+}.
+
+%% @doc sequence check - max time gap between two consecutive items, before check is triggered
+{mapping, "seq_check.max_time_gap", "faxe.seq_check.max_time_gap",
+    [{default, "10s"}, {datatype, {duration, ms}}]
+}.
+
 %% @doc sequence check - seq threshold, after this the seq rolls over to 1
 {mapping, "seq_check.max_seq_num", "faxe.seq_check.max_seq_num",
     [{default, 9999999}, {datatype, integer}]

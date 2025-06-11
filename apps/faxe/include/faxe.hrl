@@ -104,13 +104,20 @@
 -record(seq_check, {
   seq_buffer = [],
   max_buffer_size = 30,
+  min_eval_size = 4,
+  eval_size = 5,
   last_meta = #{},
   report_topic_mask = <<"root/data/{site}/Mqtt_Metric/{dataformat}">>,
   report_topic,
   meta_topic_mapping = #{3 => <<"{site}">>, 4 => <<"{dataformat}">>, 5 => <<"blupp">>},
   last_seq,
-  meta_topic,
-  seq_threshold
+  seq_threshold,
+  last_ts = 0,
+  max_time_gap = 3 * 1000,
+  eval_timeout = 3 * 60 * 1000,
+  eval_timer,
+  pool_key
+
 }).
 
 

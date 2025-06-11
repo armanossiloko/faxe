@@ -229,7 +229,8 @@ get_seq_counter(Topic, State = #state{seq_counters = Counts}) when is_map_key(To
 get_seq_counter(Topic, State = #state{seq_check_topic_depth = Depth, seq_counters = Counts}) ->
    MetaTopic = faxe_util:subtopic(Topic, Depth),
    IsFreshStart = case ets:lookup(mqtt_seq_cnt, MetaTopic) of [] -> true; _ -> false end,
-   {MetaTopic, IsFreshStart, State#state{seq_counters = Counts#{Topic => MetaTopic}}}.
+   R = {MetaTopic, IsFreshStart, State#state{seq_counters = Counts#{Topic => MetaTopic}}},
+   R.
 
 get_topic(_Item, # state{topic_lambda = undefined, topic_field = undefined, topic = Topic}) ->
    Topic;

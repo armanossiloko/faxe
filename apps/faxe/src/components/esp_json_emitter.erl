@@ -16,21 +16,23 @@
 -define(STATE_POINT_FIELD, <<"__state">>).
 
 -record(state, {
-   node_id           :: term(),
-   every             :: non_neg_integer(),
-   jitter            :: non_neg_integer(),
-   align             :: atom(),
-   json_string       :: binary(),
-   ejson             :: map()|list(),
-   as                :: binary(),
-   select            :: binary(),
-   transforms        :: list()|undefined,
-   state_point       :: #data_point{}|undefined,
-   idx = 1           :: non_neg_integer(),
-   current_ts        :: non_neg_integer()|undefined,
-   start_ts          :: non_neg_integer()|undefined,
-   one_shot = false  :: true|false,
-   stop_after        :: non_neg_integer()
+   node_id                 :: term(),
+   every                   :: non_neg_integer(),
+   jitter                  :: non_neg_integer(),
+   jitter_wave             :: non_neg_integer(),
+   apply_jitter   = false  :: boolean(),
+   align                   :: atom(),
+   json_string             :: binary(),
+   ejson                   :: map()|list(),
+   as                      :: binary(),
+   select                  :: binary(),
+   transforms              :: list()|undefined,
+   state_point             :: #data_point{}|undefined,
+   idx = 1                 :: non_neg_integer(),
+   current_ts              :: non_neg_integer()|undefined,
+   start_ts                :: non_neg_integer()|undefined,
+   one_shot       = false  :: true|false,
+   stop_after              :: non_neg_integer()
 }).
 
 
@@ -40,6 +42,8 @@ options() ->
          desc => <<"emit interval">>},
       #{name => jitter, type => duration, default => <<"0ms">>,
          desc => <<"max random value for added time jitter added to every">>},
+      #{name => jitter_window, type => duration, default => <<"0ms">>,
+         desc => <<"window to turn on/off jitter periodically after this amount of time">>},
       #{name => align, type => bool, default => true,
          desc => <<"whether to align to full occurencies of the every parameter">>},
       #{name => json, type => string_list,
@@ -90,8 +94,9 @@ check_start_ts(Start) ->
 
 
 init(NodeId, _Inputs,
-    #{every := Every, align := Unit, jitter := Jitter, json := JS, as := As, select := Sel, modify := Replace,
-       modify_with := Funs0, one_shot := OneShot, stop_after := StopAfter0, start_ts := StartTs} = _Opts) ->
+    #{every := Every, align := Unit, jitter := Jitter, jitter_window := JitterWin, json := JS, as := As, select := Sel,
+       modify := Replace, modify_with := Funs0, one_shot := OneShot, stop_after := StopAfter0, start_ts := StartTs}
+       = _Opts) ->
 
    NUnit =
       case Unit of
@@ -99,6 +104,7 @@ init(NodeId, _Inputs,
          true -> faxe_time:binary_to_duration(Every)
       end,
    JT = faxe_time:duration_to_ms(Jitter),
+   JTWin = faxe_time:duration_to_ms(JitterWin),
    EveryMs = faxe_time:duration_to_ms(Every),
 
    case StopAfter0 of
@@ -114,28 +120,32 @@ init(NodeId, _Inputs,
       #state{
          node_id = NodeId, every = EveryMs,
          ejson = JSONs, as = As, json_string = JS,
-         align = NUnit, jitter = JT, select = Sel,
+         align = NUnit, jitter = JT, jitter_wave = JTWin,
          transforms = TransformList, one_shot = OneShot,
-         start_ts = StartTs
+         start_ts = StartTs, select = Sel
       },
+
+   NewState = send_jitter_toggle(State),
    erlang:send_after(JT, self(), emit),
    rand:seed(exs1024s),
-   {ok, none, init_ts(State)}.
+   {ok, none, init_ts(NewState)}.
 
 
 process(_Inport, _Value, State) ->
    {ok, State}.
 
-handle_info(emit, State=#state{jitter = 0, every = Every}) ->
-   select_emit(Every, State);
-handle_info(emit, State=#state{every = Every, jitter = JT}) ->
-   Jitter = round(rand:uniform()*JT),
+handle_info(emit, State=#state{every = Every}) ->
+   Jitter = get_jitter(State),
+%%   lager:info("jitter ~p",[Jitter]),
    After = Every+(Jitter),
    select_emit(After, State);
 handle_info(stop_now, State) ->
    %% we use the one_shot flag here, to actually stop emitting data
    lager:warning("STOPPING"),
    {ok, State#state{one_shot = true}};
+handle_info(jitter_toggle, State=#state{apply_jitter = Apply}) ->
+   NewState = send_jitter_toggle(State),
+   {ok, NewState#state{apply_jitter = not Apply}};
 handle_info(_Request, State) ->
    {ok, State}.
 
@@ -208,6 +218,16 @@ init_ts(S = #state{start_ts = Start}) when is_binary(Start)->
    S#state{current_ts = time_format:iso8601_to_ms(Start)};
 init_ts(S = #state{start_ts = Start}) when is_integer(Start)->
    S#state{current_ts = Start}.
+
+send_jitter_toggle(S=#state{jitter_wave = 0}) ->
+   S#state{apply_jitter = true};
+send_jitter_toggle(S=#state{jitter_wave = Time}) ->
+   erlang:send_after(Time, self(), jitter_toggle),
+   S.
+
+get_jitter(#state{apply_jitter = false}) -> 0;
+get_jitter(#state{jitter = 0}) -> 0;
+get_jitter(#state{jitter = JT}) -> faxe_lambda_lib:random(1, JT) - 1.
 
 
 

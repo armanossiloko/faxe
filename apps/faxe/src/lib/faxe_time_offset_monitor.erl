@@ -36,7 +36,7 @@ handle_cast(_Request, State = #state{}) ->
 handle_info({'CHANGE', _MonitorReference, time_offset, clock_service, NewTimeOffset},
     State = #state{current_offset = Off}) ->
   OffsetMs = erlang:convert_time_unit(NewTimeOffset, native, milli_seconds),
-  case Off-OffsetMs /= 0 of
+  case Off-OffsetMs > 1 of
     true ->
       lager:warning("TIME_OFFSET changed by ~pms to: ~p", [Off-OffsetMs, OffsetMs]);
     false ->

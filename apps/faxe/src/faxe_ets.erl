@@ -81,8 +81,8 @@ init([]) ->
    ok = new_table(mqtt_pub_pool_cnt, set), %% message count for rate computation
 
    ok = new_table(mqtt_seq_cnt, set), %% message sequence counters per topic(-part)
-   ok = new_table(faxe_seq_checks_topic, set), %% seq_check procs {topic, pid}
-   ok = new_table(faxe_seq_checks_pid, set), %% seq_check procs {pid, topic}
+   ok = new_table(faxe_seq_checks_key, set), %% seq_check procs {key, pid}
+   ok = new_table(faxe_seq_checks_pid, set), %% seq_check procs {pid, key}
 
    ok = new_table(node_connections, set),
 
