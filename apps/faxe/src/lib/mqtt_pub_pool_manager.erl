@@ -42,7 +42,7 @@ connect() ->
 %% @param Opts0 Mqtt connect options
 %% @returns The pool key for later use
 connect(Opts0 = #{host := Host, port := Port}) ->
-  Opts = maps:with([host, port, user, pass, ssl, qos, retain], Opts0),
+  Opts = maps:with([host, port, user, pass, ssl, qos, retain, version], Opts0),
   ?SERVER ! {ensure_pool, Opts, self()},
   {Host, Port}.
 

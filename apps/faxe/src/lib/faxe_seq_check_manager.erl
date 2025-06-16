@@ -106,6 +106,7 @@ get_template(PoolKey) ->
   WinSize = proplists:get_value(win_size, SeqCheckConfig, SeqCheck#seq_check.max_buffer_size),
   MinEvalSize = proplists:get_value(min_eval_size, SeqCheckConfig, SeqCheck#seq_check.min_eval_size),
   EvalTimeout = proplists:get_value(eval_timeout, SeqCheckConfig, SeqCheck#seq_check.eval_timeout),
+  MaxAge = proplists:get_value(max_age, SeqCheckConfig, SeqCheck#seq_check.max_age),
   MaxTimeGap = proplists:get_value(max_time_gap, SeqCheckConfig, SeqCheck#seq_check.max_time_gap),
   Mask = proplists:get_value(topic_mask, SeqCheckConfig, SeqCheck#seq_check.report_topic_mask),
   Mapping0 = faxe_util:to_bin(proplists:get_value(topic_mapping, SeqCheckConfig)),
@@ -121,7 +122,7 @@ get_template(PoolKey) ->
     report_topic_mask = faxe_util:to_bin(Mask), max_buffer_size = WinSize,
     min_eval_size = MinEvalSize, max_time_gap = MaxTimeGap, pool_key = PoolKey,
     meta_topic_mapping = Mapping, seq_threshold = Threshold, eval_size = EvalSize,
-    eval_timeout = EvalTimeout}.
+    eval_timeout = EvalTimeout, max_age = MaxAge}.
 
 seq_check_inst(Topic, SeqCheck) ->
   ReportTopic = build_report_topic(Topic, SeqCheck),

@@ -18,6 +18,7 @@
 
 -define(DEFAULT_PORT, 1883).
 -define(DEFAULT_SSL_PORT, 8883).
+-define(SESSION_TIME_SEC, 7200).
 
 -define(META_FIELD, <<"_meta">>).
 
@@ -31,6 +32,7 @@
    user,
    pass,
    qos,
+   proto_ver = v4,
    topic,
    topics,
    client_id,
@@ -59,6 +61,8 @@ options() -> [
    {pass, string, {mqtt, pass}},
    {client_id, string, undefined},
    {qos, integer, 1},
+   %% mqtt protocol version
+   {version, string, {mqtt, version}},
    {topic, binary, undefined},
    {topics, binary_list, undefined},
    {dt_field, string, <<"ts">>},
@@ -97,7 +101,7 @@ metrics() ->
 init({GId, NId}=NodeId, _Ins,
    #{ host := Host0, port := Port, topic := Topic, topics := Topics, dt_field := DTField, as := As,
       dt_format := DTFormat, user := User, pass := Pass, include_topic := IncludeTopic, topic_as := TopicKey,
-      ssl := UseSSL, qos := Qos, client_id := CId, remove_meta_field := RemoveMeta} = _Opts) ->
+      ssl := UseSSL, qos := Qos, client_id := CId, remove_meta_field := RemoveMeta, version := Vers0} = _Opts) ->
 
    Host = binary_to_list(Host0),
    process_flag(trap_exit, true),
@@ -109,8 +113,8 @@ init({GId, NId}=NodeId, _Ins,
 
    connection_registry:reg(NodeId, Host, Port, <<"mqtt">>),
    State = #state{host = Host, port = Port, topic = Topic, dt_field = DTField, dt_format = DTFormat,
-      ssl = UseSSL, qos = Qos, client_id = ClientId, remove_meta_field = RemoveMeta,
-      topics = Topics, include_topic = IncludeTopic, topic_key = TopicKey, as = As,
+      ssl = UseSSL, qos = Qos, client_id = ClientId, remove_meta_field = RemoveMeta, topics = Topics,
+      include_topic = IncludeTopic, topic_key = TopicKey, as = As, proto_ver = mqtt_options:mqtt_vers(Vers0),
       reconnector = Reconnector1, user = User, pass = Pass, fn_id = NodeId, ssl_opts = ssl_opts(UseSSL)},
    MqttOpts = build_mqtt_opts(State),
    %% mqtt publish is needed, when we do the sequence check
@@ -358,7 +362,9 @@ connect(State = #state{mqtt_opts = Opts, client_id = ClientId}) ->
    },
    Opts0 = [
       {msg_handler, MsgHandler},
-      {clientid, ClientId}
+      {clientid, ClientId},
+      %% v5 sessions
+      {properties, #{'Session-Expiry-Interval' => ?SESSION_TIME_SEC}}
    ],
    Opts1 = Opts ++ Opts0,
 
@@ -368,12 +374,12 @@ connect(State = #state{mqtt_opts = Opts, client_id = ClientId}) ->
 %%   lager:notice("connect to mqtt broker gives: ~p",[Client]),
    State#state{client = Client}.
 
-build_mqtt_opts(State = #state{host = Host, port = Port}) ->
+build_mqtt_opts(State = #state{host = Host, port = Port, proto_ver = Vers}) ->
    Opts0 = [
       {host, Host},
       {port, Port},
       {reconnect, infinity}, {reconnect_timeout, 100},
-      {owner, self()},
+      {owner, self()}, {proto_ver, Vers},
       {keepalive, 15}, {connect_timeout, 20000},
       {clean_start, false}
    ],

@@ -355,6 +355,11 @@
     [{default, "3m"}, {datatype, {duration, ms}}]
 }.
 
+%% @doc sequence check - buffered sequence numbers that are older than this, are included in the next evaluation
+{mapping, "seq_check.max_age", "faxe.seq_check.max_age",
+    [{default, "3m"}, {datatype, {duration, ms}}]
+}.
+
 %% @doc sequence check - max time gap between two consecutive items, before check is triggered
 {mapping, "seq_check.max_time_gap", "faxe.seq_check.max_time_gap",
     [{default, "10s"}, {datatype, {duration, ms}}]
@@ -437,6 +442,10 @@
 %% @doc mqtt pass
 {mapping, "mqtt.pass", "faxe.mqtt.pass",
     [{default, "password"}, {datatype, string}, {commented, "password"}]
+}.
+%% @doc mqtt protocol version
+{mapping, "mqtt.version", "faxe.mqtt.version",
+    [{default, "v5"}, {datatype, {enum,[v4, v5]}}]
 }.
 %% @doc mqtt ssl
 %% enable the use of ssl for mqtt connections

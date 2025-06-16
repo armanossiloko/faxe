@@ -61,6 +61,8 @@ options() -> [
    {pass, string, {mqtt, pass}},
    {client_id, string, undefined},
    {qos, integer, 1},
+   %% mqtt protocol version
+   {version, string, {mqtt, version}},
    {topic, binary, undefined},
    {topic_field, binary, undefined},
    {topic_lambda, lambda, undefined},

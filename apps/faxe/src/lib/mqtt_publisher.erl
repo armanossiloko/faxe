@@ -112,7 +112,7 @@ init_all(#{host := Host, port := Port} = Opts, State) ->
       true -> ok;
       false -> catch connection_registry:reg(NId, Host, Port, <<"mqtt">>)
    end,
-
+%%   lager:notice("mqtt opts vs ~p for ~p pool",[OptsState#state.proto_ver, {NId, Caller}]),
    {ok, OptsState#state{reconnector = Reconnector1, node_id = NId, pool_caller = Caller }}.
 
 
@@ -147,17 +147,15 @@ init_opts([{ssl, true} | R], State) ->
 init_opts([{ssl, SslOpts} | R], State) when is_list(SslOpts) ->
    SslEnabled = proplists:get_value(enable, SslOpts, false),
    init_opts(R++[{ssl, SslEnabled}], State);
+init_opts([{version, MqttVers}| R], State) ->
+   Vers = mqtt_options:mqtt_vers(MqttVers),
+   init_opts(R, State#state{proto_ver = Vers});
 init_opts([{proto_ver, MqttVers}| R], State) ->
-   Vers = mqtt_vers(MqttVers),
+   Vers = mqtt_options:mqtt_vers(MqttVers),
    init_opts(R, State#state{proto_ver = Vers});
 init_opts([_O | R], State) ->
    init_opts(R, State).
 
-mqtt_vers(Str) when is_list(Str) -> mqtt_vers(list_to_binary(Str));
-mqtt_vers(<<"v3">>) -> v3;
-mqtt_vers(<<"v4">>) -> v4;
-mqtt_vers(<<"v5">>) -> v5;
-mqtt_vers(V) when is_atom(V) -> V.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -324,7 +322,7 @@ do_connect(#state{host = Host, port = Port, client_id = ClientId, pool_caller = 
    },
    Opts0 = [
       {host, Host}, {port, Port}, {proto_ver, State#state.proto_ver},
-      {keepalive, 15}, {clientid, ClientId},
+      {keepalive, 15}, {clientid, ClientId}, {proto_ver, State#state.proto_ver},
       {reconnect, infinity}, {reconnect_timeout, 150},
       {owner, self()}, {msg_handler, MsgHandler},
       {retry_interval, 7000}, {connect_timeout, 20000}

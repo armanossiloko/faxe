@@ -10,7 +10,7 @@
 -author("heyoka").
 
 %% API
--export([parse/1, parse/2]).
+-export([parse/1, parse/2, mqtt_vers/1]).
 
 -spec parse(list()|map()) -> list().
 parse(Opts) ->
@@ -45,5 +45,11 @@ parse([{ssl, true} | R], Acc) ->
 parse([_ | R], Acc) ->
    parse(R, Acc).
 
+
+mqtt_vers(Str) when is_list(Str) -> mqtt_vers(list_to_binary(Str));
+mqtt_vers(<<"v3">>) -> v3;
+mqtt_vers(<<"v4">>) -> v4;
+mqtt_vers(<<"v5">>) -> v5;
+mqtt_vers(V) when is_atom(V) -> V.
 
 

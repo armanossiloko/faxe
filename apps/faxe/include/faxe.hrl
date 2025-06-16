@@ -116,7 +116,9 @@
   max_time_gap = 3 * 1000,
   eval_timeout = 3 * 60 * 1000,
   eval_timer,
-  pool_key
+  pool_key,
+  max_age = 3 * 60 * 1000,
+  oldest_ts = 0
 
 }).
 
