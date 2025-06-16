@@ -83,7 +83,8 @@ check_options() ->
             (T) -> faxe_util:check_mqtt_topic(T)
          end,
          <<": ">>},
-      {func, topics, fun check_topics/1, <<" at least one of the topics seems to be invalid">>}
+      {func, topics, fun check_topics/1, <<" at least one of the topics seems to be invalid">>},
+      {one_of, version, [<<"v4">>, <<"v5">>]}
    ].
 
 check_topics(undefined) -> true;

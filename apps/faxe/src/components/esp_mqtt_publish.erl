@@ -85,7 +85,8 @@ check_options() ->
          fun
             (undefined) -> true;
             (T) -> faxe_util:check_publisher_mqtt_topic(T)
-         end, <<": ">>}
+         end, <<": ">>},
+      {one_of, version, [<<"v4">>, <<"v5">>]}
    ].
 
 metrics() ->

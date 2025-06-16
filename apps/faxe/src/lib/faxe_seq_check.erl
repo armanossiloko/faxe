@@ -46,9 +46,9 @@ handle_info({handle, Item = #data_point{fields = #{?META_FIELD := #{<<"started">
 handle_info({handle, Item}, State = #seq_check{}) ->
   check_seq(Item, State);
 handle_info(check, S = #seq_check{seq_buffer = Buffer, min_eval_size = MinEval}) when length(Buffer) >= MinEval ->
-  {T, Res} = timer:tc(fun() -> age_check(S) end),
-  lager:notice("check timeout in ~pmy",[T]),
-  {noreply, Res};
+%%  {T, Res} = timer:tc(fun() -> age_check(S) end),
+%%  lager:notice("check timeout in ~pmy",[T]),
+  {noreply, age_check(S)};
 handle_info(check, State = #seq_check{}) ->
   {noreply, start_eval_timer(State)};
 handle_info(_Info, State = #seq_check{}) ->

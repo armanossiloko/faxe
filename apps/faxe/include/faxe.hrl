@@ -103,9 +103,9 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -record(seq_check, {
   seq_buffer = [],
-  max_buffer_size = 30,
-  min_eval_size = 4,
-  eval_size = 5,
+  max_buffer_size = 70,
+  min_eval_size = 3,
+  eval_size = 15,
   last_meta = #{},
   report_topic_mask = <<"root/data/{site}/Mqtt_Metric/{dataformat}">>,
   report_topic,
@@ -114,7 +114,7 @@
   seq_threshold,
   last_ts = 0,
   max_time_gap = 3 * 1000,
-  eval_timeout = 3 * 60 * 1000,
+  eval_timeout = 30 * 1000,
   eval_timer,
   pool_key,
   max_age = 3 * 60 * 1000,
