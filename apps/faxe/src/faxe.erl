@@ -163,7 +163,6 @@ list_templates() ->
 -spec list_running_tasks() -> list(#task{}).
 list_running_tasks() ->
    Graphs = supervisor:which_children(graph_sup),
-%%   [T#task{is_running = true} || T <-  faxe_db:get_tasks_by_pids(Graphs)].
    [T#task{is_running = true} || T <-  faxe_db:get_tasks_by_names(Graphs)].
 
 list_permanent_tasks() ->
