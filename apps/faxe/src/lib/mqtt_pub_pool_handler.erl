@@ -67,6 +67,8 @@ init(#{host := Ip, port := Port} = Opts0) ->
   %% start with initial-number of connections
   {ok, add_initial(S)}.
 
+handle_call(get_opts, _From, State = #state{opts = Opts}) ->
+  {reply, {ok, Opts}, State};
 handle_call(get_rate, _From, State = #state{last_rate = Rate}) ->
   {reply, {ok, Rate}, State}.
 

@@ -370,12 +370,6 @@
     [{default, 9999999}, {datatype, integer}]
 }.
 
-%% @doc mqtt_publish node adds meta data field called '_meta'
-%% if set to on, the mqtt_subscribe node will remove this field from every data_point after the check is done
-{mapping, "seq_check.cleanup", "faxe.seq_check.cleanup",
-    [{default, on}, {datatype, flag}]
-}.
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%
@@ -691,7 +685,7 @@
 
 %% @doc cratedb http query timeout
 {mapping, "crate_http.query_timeout", "faxe.crate_http.query_timeout",
-    [{default, "15s"}, {datatype, {duration, ms}}]
+    [{default, "20s"}, {datatype, {duration, ms}}]
 }.
 
 

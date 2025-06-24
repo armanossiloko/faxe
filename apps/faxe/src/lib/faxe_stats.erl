@@ -69,9 +69,14 @@ handle_call(get, _From, State=#state{stats = Stats}) ->
       fun({Key, Conns}) ->
          {ok, Throughput} = gen_server:call(mqtt_pub_pool_manager, {get_throughput, Key}),
          Clients = mqtt_pub_pool_manager:get_clients(Key),
+         Version =
+            case Conns of
+               [Conn|_] -> {ok, V} = gen_server:call(Conn, get_vers), V;
+               _ -> <<"na">>
+            end,
          {Host, Port} = Key,
          #{<<"peer">> => faxe_util:to_bin(Host), <<"port">> => Port, <<"num_connections">> => length(Conns),
-            <<"throughput">> => Throughput, <<"clients">> => length(Clients)} end,
+            <<"throughput">> => Throughput, <<"clients">> => length(Clients), <<"vers">> => Version} end,
       ets:tab2list(mqtt_pub_pools)),
    UpTime0 = erlang:element(1, erlang:statistics(wall_clock)),
    {reply, Stats#{

@@ -44,6 +44,7 @@
    pool_connected = false :: true|false,
    pool_key :: tuple(),
    delete_mode = false, %% if true, an empty message will be published instead of the actual message, this leads to del topic (retained)
+   request_ack = false,
 %%   seq_num = 1,
    add_seq_check = true,
    seq_check_topic_depth = 5,
@@ -73,6 +74,8 @@ options() -> [
    {use_pool, boolean, {mqtt_pub_pool, enable}},
    %% experimental delete mode
    {'_delete', boolean, false},
+   %% request ack
+   {request_ack, boolean, false},
    %% seq_check
    {add_seq_check, boolean, {seq_check, enable}},
    {seq_check_topic_depth, integer, {seq_check, topic_depth}}
@@ -116,7 +119,7 @@ init(NodeId, _Ins, #{safe := false} = Opts) ->
 
 init_all(
     #{safe := Safe, topic := Topic, topic_lambda := LTopic, topic_field := TField,
-       use_pool := Pool, host := Host, port := Port, '_delete' := Delete,
+       use_pool := Pool, host := Host, port := Port, '_delete' := Delete, request_ack := ReqAck,
        add_seq_check := AddCheck, seq_check_topic_depth := SeqCheckTopicDepth} = Opts,
     State = #state{fn_id = {FlowId, NodeId} =NId}) ->
 
@@ -130,7 +133,7 @@ init_all(
       State#state{
          options = Opts, safe = Safe, topic = Topic, topic_lambda = LTopic, topic_field = TField, use_pool = Pool,
          delete_mode = Delete, meta_fields = Meta, seq_threshold = faxe_config:get_sub(seq_check, max_seq_num, 9999),
-         seq_check_topic_depth = SeqCheckTopicDepth, add_seq_check = AddCheck}
+         seq_check_topic_depth = SeqCheckTopicDepth, add_seq_check = AddCheck, request_ack = ReqAck}
    }.
 
 prepare_opts({GId, NId}=GNId, Opts0 = #{client_id := CId, host := Host0, '_delete' := DelMode, retained := Ret}) ->

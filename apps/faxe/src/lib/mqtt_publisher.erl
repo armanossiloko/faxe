@@ -172,6 +172,8 @@ init_opts([_O | R], State) ->
    {noreply, NewState :: #state{}, timeout() | hibernate} |
    {stop, Reason :: term(), Reply :: term(), NewState :: #state{}} |
    {stop, Reason :: term(), NewState :: #state{}}).
+handle_call(get_vers, _From, State = #state{proto_ver = Vers}) ->
+   {reply, {ok, Vers}, State};
 handle_call(_Request, _From, State) ->
    {reply, ok, State}.
 
@@ -202,10 +204,11 @@ handle_cast(_Request, State) ->
 %% mem-queue only
 %% {disconnected, ReasonCode, Properties}
 handle_info({mqttc, _C, connected},
-    State=#state{queue = undefined, mem_queue = Q, host = Host, pool_caller = Caller}) ->
+    State=#state{queue = undefined, mem_queue = Q, host = _Host, pool_caller = Caller}) ->
 
    {PendingList, NewQ} = memory_queue:to_list_reset(Q),
-   lager:notice("mqtt client connected to ~p resend: ~p (~p bytes)",[Host, length(PendingList), erlang_term:byte_size(PendingList)]),
+%%   lager:notice("mqtt client connected to ~p resend: ~p (~p bytes)",[Host, length(PendingList),
+%%    erlang_term:byte_size(PendingList)]),
    NewState = State#state{connected = true, mem_queue = NewQ},
    [publish(M, NewState) || M <- PendingList],
    connected(Caller),
@@ -258,6 +261,11 @@ next(State=#state{queue = Q, adapt_interval = AdaptInt}) ->
    erlang:send_after(NewInterval, self(), deq),
    State#state{adapt_interval = NewAdaptInt}.
 
+% Client, Topic, Properties, Payload, Opts)
+publish({Topic, Properties, Msg, Qos, Retained}, #state{client = C}) when is_binary(Msg); is_list(Msg) ->
+   emqtt:publish(C, Topic, Properties, Msg, [{qos, Qos}, {retain, Retained}]);
+publish({Topic, Properties, Msg}, State = #state{retained = Ret, qos = Qos}) ->
+   publish({Topic, Properties, Msg, Qos, Ret}, State);
 publish({Topic, Msg, Qos, Retained}, #state{client = C}) when is_binary(Msg); is_list(Msg) ->
    emqtt:publish(C, Topic, Msg, [{qos, Qos}, {retain, Retained}]);
 publish({Topic, Msg}, State = #state{retained = Ret, qos = Qos}) ->

@@ -50,8 +50,7 @@
    %% map of seq check items in use, one per meta topic
    seq_checks = #{},
    seq_check_template :: #seq_check{},
-   send_pool,
-   remove_meta_field = true
+   send_pool
 }).
 
 options() -> [
@@ -70,8 +69,7 @@ options() -> [
    {include_topic, bool, true},
    {topic_as, string, <<"topic">>},
    {as, string, undefined},
-   {ssl, is_set, {mqtt, ssl, enable}},
-   {remove_meta_field, boolean, {seq_check, cleanup}}
+   {ssl, is_set, {mqtt, ssl, enable}}
 ].
 
 check_options() ->
@@ -102,7 +100,7 @@ metrics() ->
 init({GId, NId}=NodeId, _Ins,
    #{ host := Host0, port := Port, topic := Topic, topics := Topics, dt_field := DTField, as := As,
       dt_format := DTFormat, user := User, pass := Pass, include_topic := IncludeTopic, topic_as := TopicKey,
-      ssl := UseSSL, qos := Qos, client_id := CId, remove_meta_field := RemoveMeta, version := Vers0} = _Opts) ->
+      ssl := UseSSL, qos := Qos, client_id := CId, version := Vers0} = _Opts) ->
 
    Host = binary_to_list(Host0),
    process_flag(trap_exit, true),
@@ -114,7 +112,7 @@ init({GId, NId}=NodeId, _Ins,
 
    connection_registry:reg(NodeId, Host, Port, <<"mqtt">>),
    State = #state{host = Host, port = Port, topic = Topic, dt_field = DTField, dt_format = DTFormat,
-      ssl = UseSSL, qos = Qos, client_id = ClientId, remove_meta_field = RemoveMeta, topics = Topics,
+      ssl = UseSSL, qos = Qos, client_id = ClientId, topics = Topics,
       include_topic = IncludeTopic, topic_key = TopicKey, as = As, proto_ver = mqtt_options:mqtt_vers(Vers0),
       reconnector = Reconnector1, user = User, pass = Pass, fn_id = NodeId, ssl_opts = ssl_opts(UseSSL)},
    MqttOpts = build_mqtt_opts(State),
@@ -171,7 +169,7 @@ shutdown(#state{client = C}) ->
    catch emqtt:stop(C).
 
 data_received(Topic, Payload,
-    S = #state{dt_field = DTField, dt_format = DTFormat, remove_meta_field = RemoveMeta,
+    S = #state{dt_field = DTField, dt_format = DTFormat,
        include_topic = AddTopic, topic_key = TopicKey, as = As}) ->
    node_metrics:metric(?METRIC_BYTES_READ, byte_size(Payload), S#state.fn_id),
    node_metrics:metric(?METRIC_ITEMS_IN, 1, S#state.fn_id),
@@ -185,11 +183,7 @@ data_received(Topic, Payload,
       true -> flowdata:set_field(Item0, TopicKey, Topic);
       false -> Item0
    end,
-   Item2 =
-   case RemoveMeta of
-      true -> flowdata:delete_field(Item1, ?META_FIELD);
-      false -> Item1
-   end,
+   Item2 = flowdata:delete_field(Item1, <<?META_FIELD/binary, ".started">>),
    Item = flowdata:set_root(Item2, As),
    {emit, {1, Item}, S}.
 
