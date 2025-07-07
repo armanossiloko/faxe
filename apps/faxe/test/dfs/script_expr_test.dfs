@@ -10,6 +10,7 @@ def in =
 .port(1883)
 .topic(topic)
 .ssl(false)
+.version('v4')
 |debug()
 in
 |amqp_publish()
