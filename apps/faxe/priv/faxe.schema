@@ -342,17 +342,17 @@
 
 %% @doc sequence check - size off seq buffer window to evaluate
 {mapping, "seq_check.win_size", "faxe.seq_check.win_size",
-    [{default, 50}, {datatype, integer}]
+    [{default, 90}, {datatype, integer}]
 }.
 
 %% @doc sequence check - min size of buffer to consider evaluation (only when max_time_gap is exceeded)
 {mapping, "seq_check.min_eval_size", "faxe.seq_check.min_eval_size",
-    [{default, 5}, {datatype, integer}]
+    [{default, 3}, {datatype, integer}]
 }.
 
 %% @doc sequence check - max time between two evaluations of the sequence
 {mapping, "seq_check.eval_timeout", "faxe.seq_check.eval_timeout",
-    [{default, "3m"}, {datatype, {duration, ms}}]
+    [{default, "30s"}, {datatype, {duration, ms}}]
 }.
 
 %% @doc sequence check - buffered sequence numbers that are older than this, are included in the next evaluation

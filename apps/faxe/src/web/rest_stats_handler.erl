@@ -99,5 +99,9 @@ stats_json(Req, State=#state{mode = python}) ->
       false -> 20
     end,
   {ok, Stats} = faxe_python_stats:get_stats(SortBy, Num),
-  {jiffy:encode(Stats), Req, State}.
+  {jiffy:encode(Stats), Req, State};
 
+stats_json(Req, State=#state{mode = seq_check}) ->
+  Counters = maps:from_list(ets:tab2list(mqtt_seq_cnt)),
+  Stats = #{<<"counters">> => Counters},
+  {jiffy:encode(Stats), Req, State}.

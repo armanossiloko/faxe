@@ -281,12 +281,10 @@ start_client(State = #state{host = Host, port = Port, tls = Tls}) ->
          MonRef = erlang:monitor(process, C),
          case gun:await_up(C) of
             {ok, _Protocol} ->
-               lager:notice("gun info ~p",[gun:info(C)]),
                connection_registry:connected(),
                NewState = State#state{client = C},
                maybe_continue(NewState);
             {error, What} ->
-%%               lager:warning("error connecting to ~p:~p - ~p", [Host, Port, What]),
                erlang:demonitor(MonRef, [flush]),
                lager:warning("error connecting to ~p:~p - ~p", [Host, Port, What]),
                catch gun:close(C),
