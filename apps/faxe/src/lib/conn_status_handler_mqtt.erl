@@ -26,6 +26,8 @@ init(Topic0) ->
    Topic = faxe_util:build_topic([Topic0, <<"conn_status">>]),
    {ok, #{retained => true, qos => 1}, #state{topic = Topic}}.
 
+handle_event({{<<"sys">>, <<"sys">>}, _Item}, State = #state{}) ->
+   {ok, State};
 handle_event({{FlowId, NodeId}, Item}, State = #state{topic = Topic}) ->
    T = <<Topic/binary, "/", FlowId/binary, "/", NodeId/binary>>,
    {publish, T, Item, State}.

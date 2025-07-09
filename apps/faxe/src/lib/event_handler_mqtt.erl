@@ -19,7 +19,7 @@
    code_change/3]).
 
 -define(SERVER, ?MODULE).
--define(TOPIC_BASE, <<"ttgw/sys/faxe/">>).
+-define(TOPIC_BASE, <<"sys/faxe/">>).
 
 -record(state, {
    publisher,

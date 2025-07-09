@@ -255,10 +255,10 @@ handle_info(continue, State = #state{buffer = [Item|Rest]}) ->
    lager:notice("continue with item from buffer"),
    prepare_process(Item, State#state{buffer = Rest});
 handle_info({gun_up, C, http}, State = #state{client = C}) ->
-   lager:notice("gun connection is up ~p",[C]),
+%%   lager:notice("gun connection is up ~p",[C]),
    {ok, State};
 handle_info({gun_down, ClientPid , http, closed, _Ref}, State = #state{client = C}) ->
-   lager:notice("gun connection is down : ~p",[{ClientPid, C}]),
+%%   lager:notice("gun connection is down : ~p",[{ClientPid, C}]),
    {ok, State};
 handle_info(Req, State) ->
    lager:warning("handle_info unexpected : ~p",[Req]),
