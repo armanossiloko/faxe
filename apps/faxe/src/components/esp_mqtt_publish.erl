@@ -223,11 +223,7 @@ build_message(Item, State) ->
 maybe_add_meta(Item = #data_point{fields = Fields}, Topic,
     State = #state{add_seq_check = true, meta_fields = Meta0, seq_threshold = Threshold}) when is_binary(Topic) ->
    {MetaTopic, IsFreshStart, NewState}  = get_seq_counter(Topic, State),
-   R = faxe_lambda_lib:random(1,5),
-   Inc = case R of 3 -> 3; _ -> 1 end,
-   Pos = 2,
-   %Inc = 1,
-   SetValue = 1,
+   Pos = 2, Inc = 1, SetValue = 1,
    Seq = ets:update_counter(mqtt_seq_cnt, MetaTopic, {Pos, Inc, Threshold, SetValue}, {MetaTopic, 0}),
    NewFields = Fields#{?META_FIELD => Meta0#{<<"seq">> => Seq, <<"topic">> => MetaTopic, <<"started">> => IsFreshStart}},
    {Item#data_point{fields = NewFields}, NewState};
