@@ -36,7 +36,6 @@
 %%  reset_check_server(Topic),
 
 handle(Item = #data_point{fields = #{?META_FIELD := #{?META_KEY_DEVICE := Device, ?META_KEY_TOPIC := Topic}}}) ->
-%%  lager:info("~p :: seq ~p",[{Device, Topic}, Seq]),
   Check = get_check({Device, Topic}),
   Check ! {handle, Item};
 handle(_) ->
@@ -64,11 +63,11 @@ start_link() ->
 init([]) ->
   MqttPool = mqtt_pub_pool_manager:connect(),
   Template = get_template(MqttPool),
-%%  lager:info("seq_check template : ~p",[lager:pr(Template, ?MODULE)]),
   {ok, #state{template = Template, mqtt_pool = MqttPool}}.
 
 handle_call({start_check, {_Device, Topic}=Key}, _From, State = #state{template = Template}) ->
   Check = seq_check_inst(Topic, Template),
+%%  lager:notice("seq check instance: ~p",[lager:pr(Check, ?MODULE)]),
   {ok, Pid} = faxe_seq_check:start_link(Check),
   ets:insert(?TABLE_KEY, {Key, Pid}),
   ets:insert(?TABLE_PID, {Pid, Key}),
@@ -107,8 +106,8 @@ get_template(PoolKey) ->
   MinEvalSize = proplists:get_value(min_eval_size, SeqCheckConfig, SeqCheck#seq_check.min_eval_size),
   EvalTimeout = proplists:get_value(eval_timeout, SeqCheckConfig, SeqCheck#seq_check.eval_timeout),
   MaxAge = proplists:get_value(max_age, SeqCheckConfig, SeqCheck#seq_check.max_age),
-  MaxTimeGap = proplists:get_value(max_time_gap, SeqCheckConfig, SeqCheck#seq_check.max_time_gap),
   Mask = proplists:get_value(topic_mask, SeqCheckConfig, SeqCheck#seq_check.report_topic_mask),
+  MaskLate = proplists:get_value(topic_mask_late, SeqCheckConfig, SeqCheck#seq_check.report_topic_mask_late),
   Mapping0 = faxe_util:to_bin(proplists:get_value(topic_mapping, SeqCheckConfig)),
   Threshold = proplists:get_value(max_seq_num, SeqCheckConfig),
   EvalSize = erlang:round(WinSize/5),
@@ -119,16 +118,18 @@ get_template(PoolKey) ->
       _ -> SeqCheck#seq_check.meta_topic_mapping
     end,
   #seq_check{
-    report_topic_mask = faxe_util:to_bin(Mask), max_buffer_size = WinSize,
-    min_eval_size = MinEvalSize, max_time_gap = MaxTimeGap, pool_key = PoolKey,
+    report_topic_mask = faxe_util:to_bin(Mask),
+    report_topic_mask_late = faxe_util:to_bin(MaskLate),
+    max_buffer_size = WinSize, min_eval_size = MinEvalSize, pool_key = PoolKey,
     meta_topic_mapping = Mapping, seq_threshold = Threshold, eval_size = EvalSize,
     eval_timeout = EvalTimeout, max_age = MaxAge}.
 
-seq_check_inst(Topic, SeqCheck) ->
-  ReportTopic = build_report_topic(Topic, SeqCheck),
-  SeqCheck#seq_check{report_topic = ReportTopic}.
+seq_check_inst(Topic, SeqCheck=#seq_check{report_topic_mask = TopicMask, report_topic_mask_late = TopicMaskLate}) ->
+  ReportTopic = build_report_topic(Topic, TopicMask, SeqCheck),
+  ReportTopicLate = build_report_topic(Topic, TopicMaskLate, SeqCheck),
+  SeqCheck#seq_check{report_topic = ReportTopic, report_topic_late = ReportTopicLate}.
 
-build_report_topic(SourceTopic, #seq_check{report_topic_mask = TopicTemplate, meta_topic_mapping = Mask}) ->
+build_report_topic(SourceTopic, TopicTemplate, #seq_check{meta_topic_mapping = Mask}) ->
   Parts = string:lexemes(SourceTopic, "/"),
   maps:fold(
     fun(Field, Index, TempTopic) ->

@@ -109,16 +109,17 @@
   last_meta = #{},
   report_topic_mask = <<"root/data/{site}/Mqtt_Metric/{dataformat}">>,
   report_topic,
+  report_topic_mask_late = <<"root/data/{site}/Mqtt_MetricLate/{dataformat}">>,
+  report_topic_late,
   meta_topic_mapping = #{3 => <<"{site}">>, 4 => <<"{dataformat}">>, 5 => <<"blupp">>},
+  %% last seq number, that was checked
   last_seq,
   seq_threshold,
   last_ts = 0,
-  max_time_gap = 3 * 1000,
   eval_timeout = 30 * 1000,
   eval_timer,
   pool_key,
-  max_age = 3 * 60 * 1000,
-  oldest_ts = 0
+  max_age = 3 * 60 * 1000
 
 }).
 

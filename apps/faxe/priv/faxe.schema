@@ -335,6 +335,12 @@
     [{default, "comp/data/{site}/Mqtt_SeqCheck/{dataformat}"}, {datatype, string}]
 }.
 
+%% @doc sequence check late arrival topic mask, will be used to inform about data-points, that are late to the
+%% party. topic_mapping will be shared with 'topic_mask'
+{mapping, "seq_check.topic_mask_late", "faxe.seq_check.topic_mask_late",
+    [{default, "comp/data/{site}/Mqtt_SeqCheckLate/{dataformat}"}, {datatype, string}]
+}.
+
 %% @doc sequence check topic mapping
 {mapping, "seq_check.topic_mapping", "faxe.seq_check.topic_mapping",
     [{default, "{\"{site}\": 3, \"{dataformat}\": 4, \"bleepp\": 5}"}, {datatype, string}]

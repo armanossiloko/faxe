@@ -257,7 +257,7 @@ handle_info(continue, State = #state{buffer = [Item|Rest]}) ->
 handle_info({gun_up, C, http}, State = #state{client = C}) ->
 %%   lager:notice("gun connection is up ~p",[C]),
    {ok, State};
-handle_info({gun_down, ClientPid , http, closed, _Ref}, State = #state{client = C}) ->
+handle_info({gun_down, _ClientPid , http, closed, _Ref}, State = #state{}) ->
 %%   lager:notice("gun connection is down : ~p",[{ClientPid, C}]),
    {ok, State};
 handle_info(Req, State) ->

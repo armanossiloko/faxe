@@ -64,14 +64,13 @@ code_change(_OldVsn, State = #seq_check{}, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 check_seq(
-    #data_point{fields = #{?META_FIELD := #{?SEQ_FIELD := Seq} = Meta}, ts = Ts},
+    #data_point{fields = #{?META_FIELD := #{?SEQ_FIELD := Seq} = Meta}, ts = Ts} = Item,
     SeqCheck0 =
       #seq_check{max_buffer_size = MaxBufferSize, seq_buffer = List, eval_size = _EvalSize}) ->
-%%  when Ts > OldestTs ->
 
 %%  lager:notice("do_hande(~p, ~p)",[lager:pr(Item, ?MODULE), lager:pr(SeqCheck0, ?MODULE)]),
-%%  Ts = faxe_time:now(),
   NewList = [{Seq, Ts}|List],
+  check_late(Seq, Item, SeqCheck0),
   SeqCheck = SeqCheck0#seq_check{last_meta = Meta, seq_buffer = NewList},
   BufferLen = length(NewList),
   NewSeqCheck =
@@ -122,12 +121,8 @@ do_check(SeqCheck = #seq_check{seq_threshold = Threshold, eval_size = EvalLen, s
     case catch split_get_keys(EvalLen, SeqListAll, MinSeq) of
       {[First01|_] = KeyList1, RList1} -> {First01, KeyList1, RList1};
       What -> lager:warning("called split_get_keys with ~p, ~w ~p(~p) got ~w",[EvalLen, SeqListAll, MinSeq, Threshold, What]),
-        {0, [], [], undefined}
+        {0, [], []}
     end,
-%%  case length(KeyList) < EvalLen of
-%%    true -> lager:warning("keylist is shorter than evalLen (~p) with ~w minseq: ~p",[EvalLen, SeqListAll, MinSeq]);
-%%    false -> ok
-%%  end,
   NSeqCheck = eval_seq_list(MinSeq, First0, KeyList, RList, NewSeqCheck),
   start_eval_timer(NSeqCheck).
 
@@ -148,7 +143,7 @@ eval_seq_list(MinSeq, First0, KeyList, RList,
   RemainingList = KeyList -- CheckList,
 %%   lager:notice("~nminkey: ~p ||| check ~w |||| seqlist: ~w |||| missing: ~w, remaining: ~w,  first: ~w, last: ~w, last_seq ~w",
 %%      [MinSeq, CheckList, KeyList, MissingList, RemainingList, First, Last, LastSeq1]),
-  spawn(fun() -> report_seq(MissingList, SeqCheck, PoolKey) end),
+  spawn(fun() -> report_seq(MissingList, CheckList++RemainingList, SeqCheck, PoolKey) end),
   RemainingList1 = [{K, proplists:get_value(K, Buffer)} || K <- RemainingList],
   SeqCheck#seq_check{seq_buffer = RemainingList1 ++ RList, last_seq = LastSeq1}.
 
@@ -175,32 +170,69 @@ split_get_keys(N, [{HK, _Ts}=H|T], {R, K, Skipped}, Min) when HK > Min ->
 split_get_keys(N, [H|T], {R, K, Skipped}, Min) ->
   split_get_keys(N, T, {R, K, [H|Skipped]}, Min).
 
+
+check_late(_Seq, _Item, #seq_check{last_seq = undefined}) -> ok;
+check_late(Seq, Item, SeqCheck = #seq_check{last_seq = LastSeq, seq_threshold = Max})
+    when Seq < LastSeq
+    %% avoid reporting, when seq number rolled over to 1 already
+    andalso (LastSeq - Seq) < (Max / 5) ->
+  report_late_arrival(Item, SeqCheck);
+check_late(_S, _Item, _SeqCheck) -> ok.
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+report_late_arrival(#data_point{fields = Fs, ts = Ts},
+    #seq_check{pool_key = PoolKey, report_topic_late = Topic, last_seq = Last}) ->
 
+  DP = flowdata:new(),
+  Point = DP#data_point{fields = #{<<"late_point">> => Fs#{<<"ts">> => Ts}, <<"last_seq_checked">> => Last}},
+  send_reports([{Topic, Point}], PoolKey).
 
-report_seq(MissingList, SeqCheck, PoolKey) ->
-  Reports = build_check_report(MissingList, SeqCheck),
+report_seq(MissingList, KeyList, SeqCheck, PoolKey) ->
+  Reports = build_check_report(MissingList, KeyList, SeqCheck),
   send_reports(Reports, PoolKey).
 
-build_check_report([], #seq_check{report_topic_mask = _Topic}) ->
+build_check_report([], _, #seq_check{report_topic_mask = _Topic}) ->
   [];
-build_check_report(MissingList, #seq_check{report_topic = SendTopic, last_meta = Meta}) ->
+build_check_report(MissingList, KeyList, #seq_check{report_topic = SendTopic, last_meta = Meta}) ->
+  Seen = KeyList -- MissingList,
   F =
     fun(SeqKey) ->
       DP = flowdata:new(),
-      Fields = Meta#{
-%%            <<"seq_rel">> => RelKey,
-        <<"seq">> => SeqKey},
+      {Prev, Next} = related_seq(Seen, SeqKey),
+      Fields = Meta#{<<"seq_prev">> => Prev, <<"seq_next">> => Next, <<"seq">> => SeqKey},
       {SendTopic, DP#data_point{fields = Fields}}
     end,
   Reports = lists:map(F, MissingList),
-  [lager:alert("send report ~p",[P]) || P <- Reports],
+  [lager:warning("send report ~p",[P]) || P <- Reports],
   Reports.
+
+related_seq([First], _Seq) ->
+  {First, 0};
+related_seq([_First|List], Seq) ->
+  F = fun
+        (Ele, {Min, Max}) ->
+          NewMin =
+            case Ele < Seq andalso Ele > Min of
+              true -> Ele;
+              false -> Min
+            end,
+          NewMax =
+            case Ele > Seq andalso Ele < Max of
+              true -> Ele;
+              false -> Max
+            end,
+          {NewMin, NewMax}
+      end,
+  lists:foldl(F, {0, lists:last(List)}, List);
+related_seq(_, _Seq) ->
+  {0, 0}.
+
+
 
 send_reports([], _Key) ->
   ok;
 send_reports(ReportList, PoolKey) ->
-%%  lager:warning("############ seq missing: ~p",[ReportList]).
   {ok, Publisher} = mqtt_pub_pool_manager:get_connection(PoolKey),
   F = fun({Topic, Item}) ->
     Json = flowdata:to_json(Item),
@@ -210,7 +242,6 @@ send_reports(ReportList, PoolKey) ->
 
 start_eval_timer(S = #seq_check{eval_timeout = Timeout}) ->
   Timer = erlang:send_after(Timeout, self(), check),
-%%  Timer = nope,
   S#seq_check{eval_timer = Timer}.
 
 cancel_eval_timer(S = #seq_check{eval_timer = undefined}) ->
