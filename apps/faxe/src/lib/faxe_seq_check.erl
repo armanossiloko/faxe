@@ -46,8 +46,6 @@ handle_info({handle, Item = #data_point{fields = #{?META_FIELD := #{<<"started">
 handle_info({handle, Item}, State = #seq_check{}) ->
   check_seq(Item, State);
 handle_info(check, S = #seq_check{seq_buffer = Buffer, min_eval_size = MinEval}) when length(Buffer) >= MinEval ->
-%%  {T, Res} = timer:tc(fun() -> age_check(S) end),
-%%  lager:notice("check timeout in ~pmy",[T]),
   {noreply, age_check(S)};
 handle_info(check, State = #seq_check{}) ->
   {noreply, start_eval_timer(State)};
@@ -120,7 +118,8 @@ do_check(SeqCheck = #seq_check{seq_threshold = Threshold, eval_size = EvalLen, s
   {First0, KeyList, RList} =
     case catch split_get_keys(EvalLen, SeqListAll, MinSeq) of
       {[First01|_] = KeyList1, RList1} -> {First01, KeyList1, RList1};
-      What -> lager:warning("called split_get_keys with ~p, ~w ~p(~p) got ~w",[EvalLen, SeqListAll, MinSeq, Threshold, What]),
+      _What ->
+%%        lager:warning("called split_get_keys with ~p, ~w ~p(~p) got ~w",[EvalLen, SeqListAll, MinSeq, Threshold, What]),
         {0, [], []}
     end,
   NSeqCheck = eval_seq_list(MinSeq, First0, KeyList, RList, NewSeqCheck),
@@ -129,6 +128,7 @@ do_check(SeqCheck = #seq_check{seq_threshold = Threshold, eval_size = EvalLen, s
 eval_seq_list(MinSeq, First0, KeyList, RList,
     SeqCheck=#seq_check{pool_key = PoolKey, seq_threshold = Threshold, seq_buffer = Buffer}) ->
   First = case MinSeq of undefined -> First0; _ -> case MinSeq+1 > Threshold of true -> 1; false -> MinSeq+1 end end,
+
   Last0 = First + length(KeyList) - 1,
   {Last, LastSeq1} =
     case Last0 >= Threshold of
@@ -141,11 +141,20 @@ eval_seq_list(MinSeq, First0, KeyList, RList,
   MissingList = CheckList -- KeyList,
   %% get the remaining keys in the sequence list
   RemainingList = KeyList -- CheckList,
-%%   lager:notice("~nminkey: ~p ||| check ~w |||| seqlist: ~w |||| missing: ~w, remaining: ~w,  first: ~w, last: ~w, last_seq ~w",
-%%      [MinSeq, CheckList, KeyList, MissingList, RemainingList, First, Last, LastSeq1]),
+%%  LastValid = last_valid(CheckList, MissingList, SeqCheck#seq_check.last_seen),
+%%   lager:notice("~nminkey: ~p ||| check ~w |||| seqlist: ~w |||| missing: ~w, remaining: ~w,  first: ~w, last: ~w, last_seq ~w, last_valid ~w",
+%%      [MinSeq, CheckList, KeyList, MissingList, RemainingList, First, Last, LastSeq1, LastValid]),
+  faxe_seq_check_manager:count(SeqCheck#seq_check.key, Last-First, length(MissingList)),
   spawn(fun() -> report_seq(MissingList, CheckList++RemainingList, SeqCheck, PoolKey) end),
   RemainingList1 = [{K, proplists:get_value(K, Buffer)} || K <- RemainingList],
+
   SeqCheck#seq_check{seq_buffer = RemainingList1 ++ RList, last_seq = LastSeq1}.
+
+%%last_valid(CheckList, MissingList, Previous) ->
+%%  case CheckList -- MissingList of
+%%    [] -> Previous;
+%%    L -> lists:last(L)
+%%  end.
 
 get_min_seq(#seq_check{last_seq = LastSeq, seq_threshold = Threshold}) ->
   case LastSeq of
@@ -204,12 +213,12 @@ build_check_report(MissingList, KeyList, #seq_check{report_topic = SendTopic, la
       {SendTopic, DP#data_point{fields = Fields}}
     end,
   Reports = lists:map(F, MissingList),
-  [lager:warning("send report ~p",[P]) || P <- Reports],
+%%  [lager:warning("send report ~p",[P]) || P <- Reports],
   Reports.
 
 related_seq([First], _Seq) ->
   {First, 0};
-related_seq([_First|List], Seq) ->
+related_seq([_First|_] = List, Seq) ->
   F = fun
         (Ele, {Min, Max}) ->
           NewMin =

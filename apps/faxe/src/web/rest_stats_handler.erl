@@ -103,5 +103,12 @@ stats_json(Req, State=#state{mode = python}) ->
 
 stats_json(Req, State=#state{mode = seq_check}) ->
   Counters = maps:from_list(ets:tab2list(mqtt_seq_cnt)),
-  Stats = #{<<"counters">> => Counters},
+  Checks0 = ets:tab2list(faxe_seq_checks_count_missing),
+  MapFun = fun({{Dev, Key}, Cnt, Missed}) ->
+    Perc0 = erlang:float_to_binary(100-(Missed/Cnt*100), [compact, {decimals, 2}]),
+    Perc = <<Perc0/binary, "%">>,
+    #{<<Dev/binary, "::", Key/binary>> => #{<<"checked">> => Cnt, <<"missing">> => Missed, <<"received">> => Perc}}
+    end,
+  Checks = lists:map(MapFun, Checks0),
+  Stats = #{<<"counters">> => Counters, <<"checks">> => Checks},
   {jiffy:encode(Stats), Req, State}.

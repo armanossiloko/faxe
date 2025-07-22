@@ -29,5 +29,6 @@ init(Topic0) ->
 handle_event({{<<"sys">>, <<"sys">>}, _Item}, State = #state{}) ->
    {ok, State};
 handle_event({{FlowId, NodeId}, Item}, State = #state{topic = Topic}) ->
+%%   lager:notice("conn status: ~p",[Item]),
    T = <<Topic/binary, "/", FlowId/binary, "/", NodeId/binary>>,
    {publish, T, Item, State}.

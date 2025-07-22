@@ -115,11 +115,10 @@
               message,
               "\e[0m\r\n"] % clear color and newline
           }
-        ]}
-        ,
-        {lager_emit_backend, [{level, EmitLevel}]} ,
+        ]},
         {lager_observer_backend, [{level, warning}]} ,
-        {lager_file_backend, [{file, "log/error.log"}, {level, error}]}
+        {lager_file_backend, [{file, "log/error.log"}, {level, error}]},
+        {lager_emit_backend, [{level, EmitLevel}]}
       ] ++ LogstashConf
     end}.
 

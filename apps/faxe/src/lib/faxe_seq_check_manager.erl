@@ -10,7 +10,7 @@
 
 -include("faxe.hrl").
 
--export([start_link/0]).
+-export([start_link/0, count/3]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -export([handle/1]).
 
@@ -18,6 +18,8 @@
 
 -define(TABLE_KEY, faxe_seq_checks_key).
 -define(TABLE_PID, faxe_seq_checks_pid).
+-define(TABLE_COUNT, faxe_seq_checks_count_missing).
+
 
 -define(META_FIELD, <<"_meta">>).
 -define(META_KEY_DEVICE, <<"device">>).
@@ -52,6 +54,8 @@ start_check_server(Key) ->
   {ok, Pid} = gen_server:call(?SERVER, {start_check, Key}),
   Pid.
 
+count(Key, CheckedInc, MissingInc) ->
+  ets:update_counter(?TABLE_COUNT, Key, [{2, CheckedInc}, {3, MissingInc}], {Key, 0, 0}).
 
 %%%===================================================================
 %%% Spawning and gen_server implementation
@@ -66,7 +70,7 @@ init([]) ->
   {ok, #state{template = Template, mqtt_pool = MqttPool}}.
 
 handle_call({start_check, {_Device, Topic}=Key}, _From, State = #state{template = Template}) ->
-  Check = seq_check_inst(Topic, Template),
+  Check = seq_check_inst(Topic, Key, Template),
 %%  lager:notice("seq check instance: ~p",[lager:pr(Check, ?MODULE)]),
   {ok, Pid} = faxe_seq_check:start_link(Check),
   ets:insert(?TABLE_KEY, {Key, Pid}),
@@ -124,10 +128,10 @@ get_template(PoolKey) ->
     meta_topic_mapping = Mapping, seq_threshold = Threshold, eval_size = EvalSize,
     eval_timeout = EvalTimeout, max_age = MaxAge}.
 
-seq_check_inst(Topic, SeqCheck=#seq_check{report_topic_mask = TopicMask, report_topic_mask_late = TopicMaskLate}) ->
+seq_check_inst(Topic, Key, SeqCheck=#seq_check{report_topic_mask = TopicMask, report_topic_mask_late = TopicMaskLate}) ->
   ReportTopic = build_report_topic(Topic, TopicMask, SeqCheck),
   ReportTopicLate = build_report_topic(Topic, TopicMaskLate, SeqCheck),
-  SeqCheck#seq_check{report_topic = ReportTopic, report_topic_late = ReportTopicLate}.
+  SeqCheck#seq_check{report_topic = ReportTopic, report_topic_late = ReportTopicLate, key = Key}.
 
 build_report_topic(SourceTopic, TopicTemplate, #seq_check{meta_topic_mapping = Mask}) ->
   Parts = string:lexemes(SourceTopic, "/"),

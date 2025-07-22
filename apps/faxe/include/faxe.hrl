@@ -102,6 +102,7 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -record(seq_check, {
+  key :: tuple(),
   seq_buffer = [],
   max_buffer_size = 70,
   min_eval_size = 3,
@@ -114,6 +115,8 @@
   meta_topic_mapping = #{3 => <<"{site}">>, 4 => <<"{dataformat}">>, 5 => <<"blupp">>},
   %% last seq number, that was checked
   last_seq,
+  %% highest seq number from the last check, that was not missing
+  last_seen = 0,
   seq_threshold,
   last_ts = 0,
   eval_timeout = 30 * 1000,
