@@ -88,11 +88,12 @@ age_check(SeqCheck = #seq_check{seq_buffer = List, min_eval_size = MinSize, max_
   MinTs = Now - MaxAge,
   SeqListAll = orddict:to_list(orddict:from_list(List)),
   MinSeq = get_min_seq(SeqCheck),
+%%  lager:warning("age_check with min ts: ~p, min_seq: ~p",[MinTs, MinSeq]),
   F =
   fun
-    ({Seq, Ts}, {undefined, SList, RList}) when Ts < MinTs, Seq > MinSeq ->
+    ({Seq, Ts}, {undefined, SList, RList}) when Ts < MinTs, (Seq > MinSeq orelse MinSeq == undefined) ->
       {Seq, SList ++ [Seq], RList};
-    ({Seq, Ts}, {First, SList, RList}) when Ts < MinTs, Seq > MinSeq ->
+    ({Seq, Ts}, {First, SList, RList}) when Ts < MinTs, (Seq > MinSeq orelse MinSeq == undefined) ->
       {First, SList ++ [Seq], RList};
     (E, {First, SList, RList}) ->
       {First, SList, RList++[E]}
@@ -109,7 +110,7 @@ age_check(SeqCheck = #seq_check{seq_buffer = List, min_eval_size = MinSize, max_
   start_eval_timer(CheckRec).
 
 %%-spec do_check(SeqList :: list(), EvalLen::pos_integer(), SeqCheck::#seq_check{}) -> #seq_check{}.
-do_check(SeqCheck = #seq_check{seq_threshold = Threshold, eval_size = EvalLen, seq_buffer = List}) ->
+do_check(SeqCheck = #seq_check{seq_threshold = _Threshold, eval_size = EvalLen, seq_buffer = List}) ->
   NewSeqCheck = cancel_eval_timer(SeqCheck),
   %% get the ordered list of all
   SeqListAll = orddict:to_list(orddict:from_list(List)),
@@ -142,8 +143,8 @@ eval_seq_list(MinSeq, First0, KeyList, RList,
   %% get the remaining keys in the sequence list
   RemainingList = KeyList -- CheckList,
 %%  LastValid = last_valid(CheckList, MissingList, SeqCheck#seq_check.last_seen),
-%%   lager:notice("~nminkey: ~p ||| check ~w |||| seqlist: ~w |||| missing: ~w, remaining: ~w,  first: ~w, last: ~w, last_seq ~w, last_valid ~w",
-%%      [MinSeq, CheckList, KeyList, MissingList, RemainingList, First, Last, LastSeq1, LastValid]),
+%%   lager:notice("~nminkey: ~p ||| check ~w |||| seqlist: ~w |||| missing: ~w, remaining: ~w,  first: ~w, last: ~w, last_seq ~w",
+%%      [MinSeq, CheckList, KeyList, MissingList, RemainingList, First, Last, LastSeq1]),
   faxe_seq_check_manager:count(SeqCheck#seq_check.key, Last-First, length(MissingList)),
   spawn(fun() -> report_seq(MissingList, CheckList++RemainingList, SeqCheck, PoolKey) end),
   RemainingList1 = [{K, proplists:get_value(K, Buffer)} || K <- RemainingList],
@@ -250,6 +251,7 @@ send_reports(ReportList, PoolKey) ->
   lists:foreach(F, ReportList).
 
 start_eval_timer(S = #seq_check{eval_timeout = Timeout}) ->
+%%  lager:warning("start eval timer"),
   Timer = erlang:send_after(Timeout, self(), check),
   S#seq_check{eval_timer = Timer}.
 
