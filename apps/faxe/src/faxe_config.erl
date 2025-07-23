@@ -20,7 +20,21 @@
    get_http_tls/0,
    filter_empty_options/1,
    get_esq_opts/0,
-   get_sub/2, get_sub/3]).
+   get_sub/2, get_sub/3, get_crate_table_switch_list/0, get_switched_crate_table/2]).
+
+
+get_crate_table_switch_list() ->
+   TableSites = faxe_config:get(crate_table_switch),
+   L = string:split(string:replace(TableSites, " ", "", all), ",", all),
+   [faxe_util:to_bin(E) || E <- L].
+
+get_switched_crate_table(Schema, Table0) ->
+   Table = binary:replace(Table0, <<"\"">>, <<>>, [global]),
+   SwitchList = get_crate_table_switch_list(),
+      case  lists:member(Table, SwitchList) of
+         true -> {Table, <<"ts_data">>};
+         _ -> {Schema, Table}
+      end.
 
 get(Key) ->
    application:get_env(faxe, Key, undefined).

@@ -375,6 +375,13 @@
     [{default, 9999999}, {datatype, integer}]
 }.
 
+%%%%%%%%%%%%%%%%%%
+
+%% table switch hack
+{mapping, "crate_table_switch", "faxe.crate_table_switch",
+    [{default, "none"}, {datatype, string}]
+}.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%

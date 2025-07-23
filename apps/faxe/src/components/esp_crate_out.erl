@@ -157,15 +157,21 @@ init(NodeId, Inputs,
       _ when is_list(DBFields0) -> [quote_identifier(DBField) || DBField <- DBFields0]
    end,
 
+   %%% HACK the table schema switch !!!!!!!!!!!!!
+   %%%% remove as soon as possible !!!!!
+   {Schema, TableE} = faxe_config:get_switched_crate_table(DB, Table),
+   lager:notice("Crate Schema: ~p, Table: ~p",[Schema, TableE]),
+   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
    State = #state{
       host = Host, port = Port,
-      database = quote_identifier(DB),
+      database = quote_identifier(Schema),
       user = User, pass = Pass,
       failed_retries = MaxRetries,
       remaining_fields_as = RemFieldsAs,
       tls = Tls, path = Path,
       headers = Headers,
-      table = quote_identifier(Table),
+      table = quote_identifier(TableE),
       db_fields = DBFields,
       faxe_fields = FaxeFields,
       error_trace = ETrace,
