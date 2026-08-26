@@ -240,7 +240,7 @@ public sealed class JsonEmitterNode : FaxeNodeBase
 
     public override Task OnInfoAsync(object message, CancellationToken ct)
     {
-        if (message is FlowGraph.StartSignal)
+        if (message is FlowMessages.StartSignal)
         {
             _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             _ = Loop(_cts.Token);

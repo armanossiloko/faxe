@@ -24,6 +24,7 @@ builder.Services.AddSingleton(sp =>
     return registry;
 });
 builder.Services.AddSingleton<FlowRuntime>();
+builder.Services.AddHostedService<Faxe.Api.FlowRuntimeLifetime>();
 builder.Services.AddSingleton(sp =>
 {
     var registry = sp.GetRequiredService<NodeRegistry>();

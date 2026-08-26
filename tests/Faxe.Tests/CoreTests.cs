@@ -103,7 +103,7 @@ public class LambdaTests
 public class FlowRuntimeTests
 {
     [Fact]
-    public async Task Runs_value_emitter_to_debug()
+    public async Task Runs_value_emitter_to_debug_on_akka()
     {
         var reg = new NodeRegistry();
         reg.RegisterAssembly(typeof(ValueEmitterNode).Assembly);
@@ -111,7 +111,7 @@ public class FlowRuntimeTests
         var graphDef = compiler.Compile("""
             |value_emitter().every(50ms).mode('monotonic_int').type(point)|debug()
             """);
-        var runtime = new FlowRuntime(reg);
+        await using var runtime = new FlowRuntime(reg);
         var task = new Core.Models.TaskRecord
         {
             Name = "t1",
@@ -119,7 +119,7 @@ public class FlowRuntimeTests
             Definition = graphDef
         };
         await runtime.StartAsync(task);
-        await Task.Delay(200);
+        await Task.Delay(250);
         Assert.True(runtime.IsRunning("t1"));
         await runtime.StopAsync(task);
         Assert.False(runtime.IsRunning("t1"));

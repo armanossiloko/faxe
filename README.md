@@ -33,10 +33,12 @@ dotnet run --project src/Faxe.Api
 |---------|------|
 | `Faxe.Core` | `data_point` / `data_batch`, field paths, time helpers |
 | `Faxe.Dfs` | DFS lexer/parser/compiler + lambda evaluator |
-| `Faxe.Flow` | Graph runtime and node host |
+| `Faxe.Flow` | Akka.NET graph runtime (actors + supervision) |
 | `Faxe.Nodes` | DFS node implementations |
 | `Faxe.Persistence` | SQLite store (tasks, templates, users) |
 | `Faxe.Api` | ASP.NET Core REST API + Swagger |
+
+Each DFS node runs as an Akka actor (mailbox-serialized, OneForOne restart under the graph actor), matching Faxe's original OTP process model more closely than shared thread-pool loops.
 
 ## DFS
 

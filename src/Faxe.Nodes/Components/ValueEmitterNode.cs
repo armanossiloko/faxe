@@ -46,7 +46,7 @@ public sealed class ValueEmitterNode : FaxeNodeBase
 
     public override Task OnInfoAsync(object message, CancellationToken ct)
     {
-        if (message is FlowGraph.StartSignal)
+        if (message is FlowMessages.StartSignal)
         {
             _loopCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             _ = LoopAsync(_loopCts.Token);
