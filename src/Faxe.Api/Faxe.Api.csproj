@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.30" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Faxe.Core\Faxe.Core.csproj" />
+    <ProjectReference Include="..\Faxe.Dfs\Faxe.Dfs.csproj" />
+    <ProjectReference Include="..\Faxe.Flow\Faxe.Flow.csproj" />
+    <ProjectReference Include="..\Faxe.Nodes\Faxe.Nodes.csproj" />
+    <ProjectReference Include="..\Faxe.Persistence\Faxe.Persistence.csproj" />
+  </ItemGroup>
+
+</Project>

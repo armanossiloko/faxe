@@ -1,0 +1,3433 @@
+{
+  "python3": {
+    "module": "c_python3",
+    "options": [
+      {
+        "name": "as",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "stop_on_exit",
+        "type": "boolean",
+        "default": "true"
+      }
+    ]
+  },
+  "aggregate": {
+    "module": "esp_aggregate",
+    "options": [
+      {
+        "name": "fields",
+        "type": "string_list",
+        "default": ""
+      },
+      {
+        "name": "as",
+        "type": "string_list",
+        "default": "undefined"
+      },
+      {
+        "name": "functions",
+        "type": "string_list",
+        "default": ""
+      },
+      {
+        "name": "keep",
+        "type": "string_list",
+        "default": "[]"
+      },
+      {
+        "name": "keep_tail",
+        "type": "boolean",
+        "default": "true"
+      }
+    ]
+  },
+  "amqp_consume": {
+    "module": "esp_amqp_consume",
+    "options": [
+      {
+        "name": "host",
+        "type": "binary",
+        "default": "{amqp, host"
+      },
+      {
+        "name": "port",
+        "type": "integer",
+        "default": "{amqp, port"
+      },
+      {
+        "name": "user",
+        "type": "string",
+        "default": "{amqp, user"
+      },
+      {
+        "name": "pass",
+        "type": "string",
+        "default": "{amqp, pass"
+      },
+      {
+        "name": "ssl",
+        "type": "is_set",
+        "default": "false"
+      },
+      {
+        "name": "vhost",
+        "type": "string",
+        "default": "<<\"/\">>"
+      },
+      {
+        "name": "vhost_prefix",
+        "type": "string",
+        "default": "{rabbitmq, vhost_prefix"
+      },
+      {
+        "name": "routing_key",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "bindings",
+        "type": "string_list",
+        "default": "undefined"
+      },
+      {
+        "name": "qx_name",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "queue",
+        "type": "any",
+        "default": "undefined"
+      },
+      {
+        "name": "queue_type",
+        "type": "string",
+        "default": "{rabbitmq, queue_type"
+      },
+      {
+        "name": "takeover_host",
+        "type": "binary",
+        "default": "{amqp, host"
+      },
+      {
+        "name": "takeover_port",
+        "type": "integer",
+        "default": "{amqp, port"
+      },
+      {
+        "name": "takeover_user",
+        "type": "string",
+        "default": "{amqp, user"
+      },
+      {
+        "name": "takeover_pass",
+        "type": "string",
+        "default": "{amqp, pass"
+      },
+      {
+        "name": "takeover_ssl",
+        "type": "is_set",
+        "default": "false"
+      },
+      {
+        "name": "takeover",
+        "type": "boolean",
+        "default": "{rabbitmq, takeover"
+      },
+      {
+        "name": "takeover_timeout",
+        "type": "duration",
+        "default": "<<\"5m\">>"
+      },
+      {
+        "name": "takeover_queue",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "takeover_queue_prefix",
+        "type": "string",
+        "default": "{rabbitmq, takeover_queue_prefix"
+      },
+      {
+        "name": "takeover_queue_type",
+        "type": "string",
+        "default": "{rabbitmq, takeover_queue_type"
+      },
+      {
+        "name": "takeover_queue_vhost",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "queue_prefix",
+        "type": "string",
+        "default": "{rabbitmq, queue_prefix"
+      },
+      {
+        "name": "consumer_tag",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "exchange",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "root_exchange",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "exchange_prefix",
+        "type": "string",
+        "default": "{rabbitmq, exchange_prefix"
+      },
+      {
+        "name": "prefetch",
+        "type": "integer",
+        "default": "120"
+      },
+      {
+        "name": "ack_every",
+        "type": "integer",
+        "default": "50"
+      },
+      {
+        "name": "ack_after",
+        "type": "duration",
+        "default": "<<\"5s\">>"
+      },
+      {
+        "name": "use_flow_ack",
+        "type": "bool",
+        "default": "{amqp, flow_ack, enable"
+      },
+      {
+        "name": "safe",
+        "type": "boolean",
+        "default": "false"
+      },
+      {
+        "name": "dt_field",
+        "type": "string",
+        "default": "<<\"ts\">>"
+      },
+      {
+        "name": "dt_format",
+        "type": "string",
+        "default": "?TF_TS_MILLI"
+      },
+      {
+        "name": "clean_field_names",
+        "type": "boolean",
+        "default": "false"
+      },
+      {
+        "name": "include_topic",
+        "type": "bool",
+        "default": "true"
+      },
+      {
+        "name": "topic_as",
+        "type": "string",
+        "default": "<<\"topic\">>"
+      },
+      {
+        "name": "as",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "confirm",
+        "type": "boolean",
+        "default": "true"
+      },
+      {
+        "name": "dedup_size",
+        "type": "integer",
+        "default": "400"
+      },
+      {
+        "name": "passive",
+        "type": "bool",
+        "default": "false"
+      }
+    ]
+  },
+  "amqp_publish": {
+    "module": "esp_amqp_publish",
+    "options": [
+      {
+        "name": "host",
+        "type": "string",
+        "default": "{amqp, host"
+      },
+      {
+        "name": "port",
+        "type": "integer",
+        "default": "{amqp, port"
+      },
+      {
+        "name": "user",
+        "type": "string",
+        "default": "{amqp, user"
+      },
+      {
+        "name": "pass",
+        "type": "string",
+        "default": "{amqp, pass"
+      },
+      {
+        "name": "vhost",
+        "type": "string",
+        "default": "?VHOST_DEFAULT"
+      },
+      {
+        "name": "vhost_prefix",
+        "type": "string",
+        "default": "{rabbitmq, vhost_prefix"
+      },
+      {
+        "name": "routing_key",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "routing_key_lambda",
+        "type": "lambda",
+        "default": "undefined"
+      },
+      {
+        "name": "routing_key_field",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "exchange",
+        "type": "string",
+        "default": "{rabbitmq, root_exchange"
+      },
+      {
+        "name": "ssl",
+        "type": "is_set",
+        "default": "{amqp, ssl, enable"
+      },
+      {
+        "name": "persistent",
+        "type": "bool",
+        "default": "false"
+      },
+      {
+        "name": "qos",
+        "type": "integer",
+        "default": "0"
+      }
+    ]
+  },
+  "array_explode": {
+    "module": "esp_array_explode",
+    "options": [
+      {
+        "name": "fields",
+        "type": "string_list",
+        "default": ""
+      },
+      {
+        "name": "as",
+        "type": "string_list",
+        "default": "undefined"
+      },
+      {
+        "name": "time_offset",
+        "type": "duration",
+        "default": "<<\"1s\">>"
+      },
+      {
+        "name": "keep",
+        "type": "string_list",
+        "default": "undefined"
+      }
+    ]
+  },
+  "batch": {
+    "module": "esp_batch",
+    "options": []
+  },
+  "blobstream": {
+    "module": "esp_blobstream",
+    "options": [
+      {
+        "name": "account_url",
+        "type": "string",
+        "default": "{azure_blob, account_url"
+      },
+      {
+        "name": "az_sec",
+        "type": "string",
+        "default": "{azure_blob, account_secret"
+      },
+      {
+        "name": "container",
+        "type": "string",
+        "default": "<<\"test\">>"
+      },
+      {
+        "name": "blob_name",
+        "type": "string",
+        "default": "<<\"4ed182c6eb9e\">>"
+      },
+      {
+        "name": "encoding",
+        "type": "string",
+        "default": "<<\"utf-8\">>"
+      },
+      {
+        "name": "chunk_size",
+        "type": "integer",
+        "default": "4096"
+      },
+      {
+        "name": "format",
+        "type": "string",
+        "default": "?FORMAT_CSV"
+      },
+      {
+        "name": "header_row",
+        "type": "integer",
+        "default": "1"
+      },
+      {
+        "name": "data_start_row",
+        "type": "integer",
+        "default": "2"
+      },
+      {
+        "name": "date_field",
+        "type": "string",
+        "default": "<<\"date\">>"
+      },
+      {
+        "name": "date_format",
+        "type": "string",
+        "default": "<<\"Y-m-D H:M:s\">>"
+      },
+      {
+        "name": "line_separator",
+        "type": "string",
+        "default": "<<\"\\n\">>"
+      },
+      {
+        "name": "column_separator",
+        "type": "string",
+        "default": "<<\",\">>"
+      },
+      {
+        "name": "batch_size",
+        "type": "integer",
+        "default": "120"
+      },
+      {
+        "name": "opts_field",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "retries",
+        "type": "integer",
+        "default": "3"
+      }
+    ]
+  },
+  "case": {
+    "module": "esp_case",
+    "options": [
+      {
+        "name": "lambdas",
+        "type": "lambda_list",
+        "default": ""
+      },
+      {
+        "name": "as",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "values",
+        "type": "list",
+        "default": ""
+      },
+      {
+        "name": "json",
+        "type": "is_set",
+        "default": "false"
+      },
+      {
+        "name": "default",
+        "type": "any",
+        "default": ""
+      }
+    ]
+  },
+  "change_detect": {
+    "module": "esp_change_detect",
+    "options": [
+      {
+        "name": "fields",
+        "type": "binary_list",
+        "default": "undefined"
+      },
+      {
+        "name": "group_by",
+        "type": "binary",
+        "default": "?DEFAULT_GROUP"
+      },
+      {
+        "name": "strict",
+        "type": "boolean",
+        "default": "true"
+      },
+      {
+        "name": "reset_timeout",
+        "type": "duration",
+        "default": "undefined"
+      },
+      {
+        "name": "timeout",
+        "type": "duration",
+        "default": "undefined"
+      }
+    ]
+  },
+  "collect": {
+    "module": "esp_collect",
+    "options": [
+      {
+        "name": "key_fields",
+        "type": "string_list",
+        "default": ""
+      },
+      {
+        "name": "add",
+        "type": "lambda",
+        "default": "undefined"
+      },
+      {
+        "name": "remove",
+        "type": "lambda",
+        "default": "undefined"
+      },
+      {
+        "name": "update",
+        "type": "any",
+        "default": "undefined"
+      },
+      {
+        "name": "update_mode",
+        "type": "string",
+        "default": "?UPDATE_MODE_REPLACE"
+      },
+      {
+        "name": "emit_every",
+        "type": "duration",
+        "default": "undefined"
+      },
+      {
+        "name": "emit_unchanged",
+        "type": "boolean",
+        "default": "true"
+      },
+      {
+        "name": "tag_added",
+        "type": "boolean",
+        "default": "false"
+      },
+      {
+        "name": "tag_updated",
+        "type": "boolean",
+        "default": "false"
+      },
+      {
+        "name": "tag_removed",
+        "type": "boolean",
+        "default": "false"
+      },
+      {
+        "name": "include_removed",
+        "type": "boolean",
+        "default": "false"
+      },
+      {
+        "name": "keep",
+        "type": "string_list",
+        "default": "[]"
+      },
+      {
+        "name": "keep_as",
+        "type": "string_list",
+        "default": "undefined"
+      },
+      {
+        "name": "as",
+        "type": "string",
+        "default": "<<\"collected\">>"
+      },
+      {
+        "name": "max_age",
+        "type": "duration",
+        "default": "<<\"3h\">>"
+      },
+      {
+        "name": "max_ts_age",
+        "type": "duration",
+        "default": "undefined"
+      },
+      {
+        "name": "tag_value",
+        "type": "any",
+        "default": "1"
+      },
+      {
+        "name": "merge",
+        "type": "boolean",
+        "default": "false"
+      }
+    ]
+  },
+  "collect_fields": {
+    "module": "esp_collect_fields",
+    "options": [
+      {
+        "name": "fields",
+        "type": "string_list",
+        "default": ""
+      },
+      {
+        "name": "default",
+        "type": "any",
+        "default": "undefined"
+      },
+      {
+        "name": "emit_unchanged",
+        "type": "boolean",
+        "default": "true"
+      },
+      {
+        "name": "keep",
+        "type": "string_list",
+        "default": "[]"
+      },
+      {
+        "name": "keep_as",
+        "type": "string_list",
+        "default": "undefined"
+      }
+    ]
+  },
+  "collect_unique": {
+    "module": "esp_collect_unique",
+    "options": [
+      {
+        "name": "field",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "min_vals",
+        "type": "integer",
+        "default": "1"
+      },
+      {
+        "name": "keep",
+        "type": "string_list",
+        "default": ""
+      },
+      {
+        "name": "keep_as",
+        "type": "string_list",
+        "default": "undefined"
+      },
+      {
+        "name": "as",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "max_age",
+        "type": "duration",
+        "default": "undefined"
+      }
+    ]
+  },
+  "combine": {
+    "module": "esp_combine",
+    "options": [
+      {
+        "name": "fields",
+        "type": "string_list",
+        "default": "undefined"
+      },
+      {
+        "name": "tags",
+        "type": "string_list",
+        "default": "undefined"
+      },
+      {
+        "name": "aliases",
+        "type": "string_list",
+        "default": "undefined"
+      },
+      {
+        "name": "prefix",
+        "type": "binary",
+        "default": "undefined"
+      },
+      {
+        "name": "prefix_delimiter",
+        "type": "binary",
+        "default": "?PREFIX_DEL"
+      },
+      {
+        "name": "merge_field",
+        "type": "binary",
+        "default": "undefined"
+      },
+      {
+        "name": "nofill",
+        "type": "is_set",
+        "default": ""
+      }
+    ]
+  },
+  "conn_status": {
+    "module": "esp_conn_status",
+    "options": [
+      {
+        "name": "flow",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "node",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "type",
+        "type": "string",
+        "default": "undefined"
+      }
+    ]
+  },
+  "count_change": {
+    "module": "esp_count_change",
+    "options": [
+      {
+        "name": "field",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "as",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "keep_last",
+        "type": "boolean",
+        "default": "true"
+      }
+    ]
+  },
+  "crate_out": {
+    "module": "esp_crate_out",
+    "options": [
+      {
+        "name": "host",
+        "type": "string",
+        "default": "{crate_http, host"
+      },
+      {
+        "name": "port",
+        "type": "integer",
+        "default": "{crate_http, port"
+      },
+      {
+        "name": "tls",
+        "type": "is_set",
+        "default": "{crate_http, tls, enable"
+      },
+      {
+        "name": "table",
+        "type": "any",
+        "default": ""
+      },
+      {
+        "name": "user",
+        "type": "string",
+        "default": "{crate_http, user"
+      },
+      {
+        "name": "pass",
+        "type": "string",
+        "default": "{crate_http, pass"
+      },
+      {
+        "name": "database",
+        "type": "string",
+        "default": "<<\"doc\">>"
+      },
+      {
+        "name": "db_fields",
+        "type": "list",
+        "default": "undefined"
+      },
+      {
+        "name": "faxe_fields",
+        "type": "string_list",
+        "default": "undefined"
+      },
+      {
+        "name": "remaining_fields_as",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "max_retries",
+        "type": "integer",
+        "default": "?FAILED_RETRIES"
+      },
+      {
+        "name": "error_trace",
+        "type": "boolean",
+        "default": "false"
+      },
+      {
+        "name": "ignore_response_timeout",
+        "type": "boolean",
+        "default": "false"
+      },
+      {
+        "name": "use_flow_ack",
+        "type": "boolean",
+        "default": "{amqp, flow_ack, enable"
+      },
+      {
+        "name": "deduplicate",
+        "type": "boolean",
+        "default": "true"
+      },
+      {
+        "name": "pg_port",
+        "type": "integer",
+        "default": "{crate, port"
+      },
+      {
+        "name": "pg_tls",
+        "type": "boolean",
+        "default": "{crate, tls, enable"
+      },
+      {
+        "name": "pg_user",
+        "type": "string",
+        "default": "{crate, user"
+      },
+      {
+        "name": "pg_pass",
+        "type": "string",
+        "default": "{crate, pass"
+      }
+    ]
+  },
+  "crate_query": {
+    "module": "esp_crate_query",
+    "options": [
+      {
+        "name": "host",
+        "type": "string",
+        "default": "{crate, host"
+      },
+      {
+        "name": "port",
+        "type": "integer",
+        "default": "{crate, port"
+      },
+      {
+        "name": "tls",
+        "type": "boolean",
+        "default": "{crate, tls, enable"
+      },
+      {
+        "name": "user",
+        "type": "string",
+        "default": "{crate, user"
+      },
+      {
+        "name": "pass",
+        "type": "string",
+        "default": "{crate, pass"
+      },
+      {
+        "name": "database",
+        "type": "string",
+        "default": "{crate, database"
+      },
+      {
+        "name": "query",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "time_field",
+        "type": "string",
+        "default": "<<\"ts\">>"
+      },
+      {
+        "name": "every",
+        "type": "duration",
+        "default": "<<\"5s\">>"
+      },
+      {
+        "name": "period",
+        "type": "duration",
+        "default": "<<\"1h\">>"
+      },
+      {
+        "name": "align",
+        "type": "is_set",
+        "default": ""
+      },
+      {
+        "name": "group_by_time",
+        "type": "duration",
+        "default": "<<\"2m\">>"
+      },
+      {
+        "name": "group_by",
+        "type": "string_list",
+        "default": "[]"
+      },
+      {
+        "name": "limit",
+        "type": "string",
+        "default": "<<\"30\">>"
+      },
+      {
+        "name": "result_type",
+        "type": "string",
+        "default": "<<\"batch\">>"
+      }
+    ]
+  },
+  "crate_query_cont": {
+    "module": "esp_crate_query_cont",
+    "options": [
+      {
+        "name": "host",
+        "type": "string",
+        "default": "{crate, host"
+      },
+      {
+        "name": "port",
+        "type": "integer",
+        "default": "{crate, port"
+      },
+      {
+        "name": "ssl",
+        "type": "boolean",
+        "default": "{crate, tls, enable"
+      },
+      {
+        "name": "tls",
+        "type": "boolean",
+        "default": "{crate, tls, enable"
+      },
+      {
+        "name": "user",
+        "type": "string",
+        "default": "{crate, user"
+      },
+      {
+        "name": "pass",
+        "type": "string",
+        "default": "{crate, pass"
+      },
+      {
+        "name": "database",
+        "type": "string",
+        "default": "{crate, database"
+      },
+      {
+        "name": "query",
+        "type": "any",
+        "default": ""
+      },
+      {
+        "name": "setup_query",
+        "type": "any",
+        "default": "undefined"
+      },
+      {
+        "name": "setup_vars",
+        "type": "string_list",
+        "default": "[]"
+      },
+      {
+        "name": "setup_ts",
+        "type": "any",
+        "default": "undefined"
+      },
+      {
+        "name": "filter_time_field",
+        "type": "string",
+        "default": "<<\"ts\">>"
+      },
+      {
+        "name": "result_time_field",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "offset",
+        "type": "duration",
+        "default": "<<\"20s\">>"
+      },
+      {
+        "name": "period",
+        "type": "duration",
+        "default": "<<\"1h\">>"
+      },
+      {
+        "name": "min_interval",
+        "type": "duration",
+        "default": "<<\"5s\">>"
+      },
+      {
+        "name": "query_timeout",
+        "type": "duration",
+        "default": "<<\"15s\">>"
+      },
+      {
+        "name": "start",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "start_delay",
+        "type": "duration",
+        "default": "undefined"
+      },
+      {
+        "name": "stop",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "stop_flow",
+        "type": "boolean",
+        "default": "true"
+      },
+      {
+        "name": "result_type",
+        "type": "string",
+        "default": "<<\"batch\">>"
+      },
+      {
+        "name": "extended_log",
+        "type": "boolean",
+        "default": "{node, crate_query_cont, extended_log"
+      }
+    ]
+  },
+  "deadman": {
+    "module": "esp_deadman",
+    "options": [
+      {
+        "name": "timeout",
+        "type": "duration",
+        "default": ""
+      },
+      {
+        "name": "fields",
+        "type": "string_list",
+        "default": "[]"
+      },
+      {
+        "name": "field_values",
+        "type": "list",
+        "default": "[]"
+      },
+      {
+        "name": "silent_time",
+        "type": "duration",
+        "default": "<<\"0ms\">>"
+      },
+      {
+        "name": "repeat_last",
+        "type": "is_set",
+        "default": ""
+      },
+      {
+        "name": "repeat_with_new_ts",
+        "type": "bool",
+        "default": "true"
+      },
+      {
+        "name": "repeat_interval",
+        "type": "duration",
+        "default": "undefined"
+      },
+      {
+        "name": "trigger_on_value",
+        "type": "is_set",
+        "default": ""
+      },
+      {
+        "name": "no_forward",
+        "type": "is_set",
+        "default": ""
+      }
+    ]
+  },
+  "debug": {
+    "module": "esp_debug",
+    "options": [
+      {
+        "name": "level",
+        "type": "string",
+        "default": "<<\"notice\">>"
+      },
+      {
+        "name": "where",
+        "type": "lambda",
+        "default": "undefined"
+      },
+      {
+        "name": "message",
+        "type": "string",
+        "default": "<<\"\">>"
+      }
+    ]
+  },
+  "default": {
+    "module": "esp_default",
+    "options": [
+      {
+        "name": "fields",
+        "type": "binary_list",
+        "default": "[]"
+      },
+      {
+        "name": "field_values",
+        "type": "list",
+        "default": "[]"
+      },
+      {
+        "name": "tags",
+        "type": "binary_list",
+        "default": "[]"
+      },
+      {
+        "name": "tag_values",
+        "type": "binary_list",
+        "default": "[]"
+      }
+    ]
+  },
+  "delete": {
+    "module": "esp_delete",
+    "options": [
+      {
+        "name": "fields",
+        "type": "binary_list",
+        "default": "[]"
+      },
+      {
+        "name": "tags",
+        "type": "binary_list",
+        "default": "[]"
+      },
+      {
+        "name": "where",
+        "type": "lambda",
+        "default": "undefined"
+      },
+      {
+        "name": "when_value",
+        "type": "any",
+        "default": "undefined"
+      }
+    ]
+  },
+  "email": {
+    "module": "esp_email",
+    "options": [
+      {
+        "name": "from_address",
+        "type": "binary",
+        "default": "{email, from_address"
+      },
+      {
+        "name": "smtp_relay",
+        "type": "binary",
+        "default": "{email, smtp_relay"
+      },
+      {
+        "name": "smtp_user",
+        "type": "any",
+        "default": "{email, smtp_user"
+      },
+      {
+        "name": "smtp_pass",
+        "type": "any",
+        "default": "{email, smtp_pass"
+      },
+      {
+        "name": "smtp_port",
+        "type": "integer",
+        "default": "{email, smtp_port"
+      },
+      {
+        "name": "smtp_tls",
+        "type": "is_set",
+        "default": "{email, smtp_tls"
+      },
+      {
+        "name": "template",
+        "type": "binary",
+        "default": "{email, template"
+      },
+      {
+        "name": "subject",
+        "type": "string_template",
+        "default": "undefined"
+      },
+      {
+        "name": "body",
+        "type": "string_template",
+        "default": "undefined"
+      },
+      {
+        "name": "body_field",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "subject_field",
+        "type": "string",
+        "default": "undefined"
+      }
+    ]
+  },
+  "eval": {
+    "module": "esp_eval",
+    "options": [
+      {
+        "name": "lambdas",
+        "type": "lambda_list",
+        "default": ""
+      },
+      {
+        "name": "as",
+        "type": "string_list",
+        "default": ""
+      },
+      {
+        "name": "tags",
+        "type": "string_list",
+        "default": "[]"
+      }
+    ]
+  },
+  "extract_path": {
+    "module": "esp_extract_path",
+    "options": [
+      {
+        "name": "path",
+        "type": "binary_list",
+        "default": ""
+      },
+      {
+        "name": "as",
+        "type": "binary_list",
+        "default": ""
+      },
+      {
+        "name": "default",
+        "type": "any",
+        "default": "0"
+      }
+    ]
+  },
+  "fields_to_array": {
+    "module": "esp_fields_to_array",
+    "options": [
+      {
+        "name": "fields",
+        "type": "string_list",
+        "default": ""
+      },
+      {
+        "name": "key_name",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "value_name",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "ts_as",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "keep",
+        "type": "string_list",
+        "default": "undefined"
+      },
+      {
+        "name": "as",
+        "type": "string",
+        "default": ""
+      }
+    ]
+  },
+  "group_by": {
+    "module": "esp_group_by",
+    "options": [
+      {
+        "name": "fields",
+        "type": "string_list",
+        "default": "undefined"
+      },
+      {
+        "name": "lambda",
+        "type": "lambda",
+        "default": "undefined"
+      },
+      {
+        "name": "reset_timeout",
+        "type": "duration",
+        "default": "<<\"2m\">>"
+      },
+      {
+        "name": "debatch",
+        "type": "boolean",
+        "default": "false"
+      },
+      {
+        "name": "emit_empty",
+        "type": "boolean",
+        "default": "false"
+      }
+    ]
+  },
+  "group_union": {
+    "module": "esp_group_union",
+    "options": []
+  },
+  "http_get": {
+    "module": "esp_http_get",
+    "options": [
+      {
+        "name": "host",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "port",
+        "type": "integer",
+        "default": "80"
+      },
+      {
+        "name": "path",
+        "type": "string",
+        "default": "<<\"/\">>"
+      },
+      {
+        "name": "user",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "pass",
+        "type": "string",
+        "default": "''"
+      },
+      {
+        "name": "payload_type",
+        "type": "string",
+        "default": "?P_TYPE_JSON"
+      },
+      {
+        "name": "param_keys",
+        "type": "string_list",
+        "default": "[]"
+      },
+      {
+        "name": "param_values",
+        "type": "string_list",
+        "default": "[]"
+      },
+      {
+        "name": "every",
+        "type": "duration",
+        "default": "undefined"
+      },
+      {
+        "name": "align",
+        "type": "is_set",
+        "default": "false"
+      },
+      {
+        "name": "tls",
+        "type": "is_set",
+        "default": "false"
+      },
+      {
+        "name": "retries",
+        "type": "pos_integer",
+        "default": "2"
+      },
+      {
+        "name": "as",
+        "type": "string",
+        "default": "undefined"
+      }
+    ]
+  },
+  "http_listen": {
+    "module": "esp_http_listen",
+    "options": [
+      {
+        "name": "port",
+        "type": "integer",
+        "default": "8899"
+      },
+      {
+        "name": "path",
+        "type": "string",
+        "default": "<<\"/\">>"
+      },
+      {
+        "name": "tls",
+        "type": "is_set",
+        "default": "false"
+      },
+      {
+        "name": "payload_type",
+        "type": "string",
+        "default": "?P_TYPE_JSON"
+      },
+      {
+        "name": "content_type",
+        "type": "string",
+        "default": "?CONT_TYPE_JSON"
+      },
+      {
+        "name": "as",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "user",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "pass",
+        "type": "string",
+        "default": "undefined"
+      }
+    ]
+  },
+  "http_post": {
+    "module": "esp_http_post",
+    "options": [
+      {
+        "name": "host",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "port",
+        "type": "integer",
+        "default": ""
+      },
+      {
+        "name": "path",
+        "type": "string",
+        "default": "<<\"/\">>"
+      },
+      {
+        "name": "tls",
+        "type": "boolean",
+        "default": "false"
+      },
+      {
+        "name": "user",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "pass",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "header_names",
+        "type": "string_list",
+        "default": "[]"
+      },
+      {
+        "name": "header_values",
+        "type": "string_list",
+        "default": "[]"
+      },
+      {
+        "name": "field",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "without",
+        "type": "string_list",
+        "default": "[]"
+      },
+      {
+        "name": "response_as",
+        "type": "string",
+        "default": "<<\"data\">>"
+      },
+      {
+        "name": "method",
+        "type": "string",
+        "default": "<<\"post\">>"
+      }
+    ]
+  },
+  "http_post_crate": {
+    "module": "esp_http_post_crate",
+    "options": [
+      {
+        "name": "host",
+        "type": "string",
+        "default": "{crate_http, host"
+      },
+      {
+        "name": "port",
+        "type": "integer",
+        "default": "{crate_http, port"
+      },
+      {
+        "name": "tls",
+        "type": "is_set",
+        "default": "false"
+      },
+      {
+        "name": "table",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "user",
+        "type": "string",
+        "default": "{crate_http, user"
+      },
+      {
+        "name": "pass",
+        "type": "string",
+        "default": "{crate_http, pass"
+      },
+      {
+        "name": "database",
+        "type": "string",
+        "default": "<<\"doc\">>"
+      },
+      {
+        "name": "db_fields",
+        "type": "string_list",
+        "default": ""
+      },
+      {
+        "name": "faxe_fields",
+        "type": "string_list",
+        "default": ""
+      },
+      {
+        "name": "remaining_fields_as",
+        "type": "string",
+        "default": "undefined"
+      }
+    ]
+  },
+  "if": {
+    "module": "esp_if",
+    "options": [
+      {
+        "name": "test",
+        "type": "lambda",
+        "default": ""
+      },
+      {
+        "name": "then",
+        "type": "any",
+        "default": ""
+      },
+      {
+        "name": "as",
+        "type": "string",
+        "default": ""
+      }
+    ]
+  },
+  "influx_out": {
+    "module": "esp_influx_out",
+    "options": [
+      {
+        "name": "host",
+        "type": "string",
+        "default": "{influx_http, host"
+      },
+      {
+        "name": "port",
+        "type": "integer",
+        "default": "{influx_http, port"
+      },
+      {
+        "name": "tls",
+        "type": "is_set",
+        "default": "false"
+      },
+      {
+        "name": "user",
+        "type": "string",
+        "default": "{influx_http, user"
+      },
+      {
+        "name": "pass",
+        "type": "string",
+        "default": "{influx_http, pass"
+      },
+      {
+        "name": "database",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "measurement",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "retpol",
+        "type": "string",
+        "default": "undefined"
+      }
+    ]
+  },
+  "join": {
+    "module": "esp_join",
+    "options": [
+      {
+        "name": "joined",
+        "type": "nodes",
+        "default": "{ports, [2,3,4,5]"
+      },
+      {
+        "name": "prefix",
+        "type": "string_list",
+        "default": "[<<\"\">>, <<\"\">>]"
+      },
+      {
+        "name": "merge_field",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "missing_timeout",
+        "type": "duration",
+        "default": "<<\"30s\">>"
+      },
+      {
+        "name": "tolerance",
+        "type": "duration",
+        "default": "<<\"2s\">>"
+      },
+      {
+        "name": "fill",
+        "type": "any",
+        "default": "none"
+      },
+      {
+        "name": "full",
+        "type": "boolean",
+        "default": "true"
+      }
+    ]
+  },
+  "join2": {
+    "module": "esp_join2",
+    "options": [
+      {
+        "name": "joined",
+        "type": "nodes",
+        "default": "{ports, [2,3,4,5]"
+      },
+      {
+        "name": "prefix",
+        "type": "string_list",
+        "default": "[<<\"\">>, <<\"\">>]"
+      },
+      {
+        "name": "merge_field",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "missing_timeout",
+        "type": "duration",
+        "default": "<<\"20s\">>"
+      },
+      {
+        "name": "tolerance",
+        "type": "duration",
+        "default": "<<\"2s\">>"
+      },
+      {
+        "name": "full",
+        "type": "boolean",
+        "default": "true"
+      }
+    ]
+  },
+  "jsonsize": {
+    "module": "esp_jsonsize",
+    "options": [
+      {
+        "name": "inject",
+        "type": "is_set",
+        "default": ""
+      },
+      {
+        "name": "field",
+        "type": "string",
+        "default": "<<\"jsonsize\">>"
+      }
+    ]
+  },
+  "json_emitter": {
+    "module": "esp_json_emitter",
+    "options": []
+  },
+  "keep": {
+    "module": "esp_keep",
+    "options": [
+      {
+        "name": "fields",
+        "type": "binary_list",
+        "default": "[]"
+      },
+      {
+        "name": "tags",
+        "type": "binary_list",
+        "default": "[]"
+      },
+      {
+        "name": "as",
+        "type": "string_list",
+        "default": "[]"
+      }
+    ]
+  },
+  "log": {
+    "module": "esp_log",
+    "options": [
+      {
+        "name": "file",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "format",
+        "type": "string",
+        "default": "<<\"json\">>"
+      },
+      {
+        "name": "field",
+        "type": "string",
+        "default": "undefined"
+      }
+    ]
+  },
+  "mem": {
+    "module": "esp_mem",
+    "options": [
+      {
+        "name": "field",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "type",
+        "type": "string",
+        "default": "<<\"single\">>"
+      },
+      {
+        "name": "key",
+        "type": "string",
+        "default": "<<\"StreamLookup\">>"
+      },
+      {
+        "name": "default",
+        "type": "any",
+        "default": "undefined"
+      },
+      {
+        "name": "default_json",
+        "type": "is_set",
+        "default": "false"
+      }
+    ]
+  },
+  "metrics": {
+    "module": "esp_metrics",
+    "options": [
+      {
+        "name": "flow",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "node",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "metrics",
+        "type": "string_list",
+        "default": "undefined"
+      }
+    ]
+  },
+  "modbus": {
+    "module": "esp_modbus",
+    "options": [
+      {
+        "name": "ip",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "port",
+        "type": "integer",
+        "default": "502"
+      },
+      {
+        "name": "every",
+        "type": "duration",
+        "default": "undefined"
+      },
+      {
+        "name": "align",
+        "type": "is_set",
+        "default": "false"
+      },
+      {
+        "name": "device",
+        "type": "integer",
+        "default": "255"
+      },
+      {
+        "name": "function",
+        "type": "binary_list",
+        "default": ""
+      },
+      {
+        "name": "from",
+        "type": "integer_list",
+        "default": ""
+      },
+      {
+        "name": "count",
+        "type": "integer_list",
+        "default": ""
+      },
+      {
+        "name": "as",
+        "type": "binary_list",
+        "default": ""
+      },
+      {
+        "name": "output",
+        "type": "string_list",
+        "default": "undefined"
+      },
+      {
+        "name": "signed",
+        "type": "atom_list",
+        "default": "undefined"
+      },
+      {
+        "name": "max_connections",
+        "type": "pos_integer",
+        "default": "auto"
+      },
+      {
+        "name": "round",
+        "type": "integer",
+        "default": "undefined"
+      },
+      {
+        "name": "timeout",
+        "type": "duration",
+        "default": "<<\"7s\">>"
+      }
+    ]
+  },
+  "modbus_read": {
+    "module": "esp_modbus_read",
+    "options": [
+      {
+        "name": "ip",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "port",
+        "type": "integer",
+        "default": "502"
+      },
+      {
+        "name": "every",
+        "type": "duration",
+        "default": "undefined"
+      },
+      {
+        "name": "align",
+        "type": "boolean",
+        "default": "true"
+      },
+      {
+        "name": "device",
+        "type": "integer",
+        "default": "255"
+      },
+      {
+        "name": "function",
+        "type": "string_list",
+        "default": ""
+      },
+      {
+        "name": "from",
+        "type": "integer_list",
+        "default": ""
+      },
+      {
+        "name": "count",
+        "type": "integer_list",
+        "default": ""
+      },
+      {
+        "name": "as",
+        "type": "binary_list",
+        "default": ""
+      },
+      {
+        "name": "output",
+        "type": "string_list",
+        "default": "undefined"
+      },
+      {
+        "name": "signed",
+        "type": "atom_list",
+        "default": "undefined"
+      },
+      {
+        "name": "round",
+        "type": "integer",
+        "default": "undefined"
+      },
+      {
+        "name": "timeout",
+        "type": "duration",
+        "default": "<<\"5s\">>"
+      }
+    ]
+  },
+  "mongo_query": {
+    "module": "esp_mongo_query",
+    "options": [
+      {
+        "name": "host",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "port",
+        "type": "integer",
+        "default": "27017"
+      },
+      {
+        "name": "user",
+        "type": "string",
+        "default": "<<>>"
+      },
+      {
+        "name": "pass",
+        "type": "string",
+        "default": "<<>>"
+      },
+      {
+        "name": "database",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "collection",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "query",
+        "type": "string",
+        "default": "<<\"{"
+      },
+      {
+        "name": "as",
+        "type": "binary",
+        "default": "undefined"
+      },
+      {
+        "name": "time_field",
+        "type": "string",
+        "default": "<<\"ts\">>"
+      },
+      {
+        "name": "every",
+        "type": "duration",
+        "default": "undefined"
+      },
+      {
+        "name": "align",
+        "type": "is_set",
+        "default": "false"
+      }
+    ]
+  },
+  "mqtt_publish": {
+    "module": "esp_mqtt_publish",
+    "options": [
+      {
+        "name": "host",
+        "type": "binary",
+        "default": "{mqtt, host"
+      },
+      {
+        "name": "port",
+        "type": "integer",
+        "default": "{mqtt, port"
+      },
+      {
+        "name": "user",
+        "type": "string",
+        "default": "{mqtt, user"
+      },
+      {
+        "name": "pass",
+        "type": "string",
+        "default": "{mqtt, pass"
+      },
+      {
+        "name": "client_id",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "qos",
+        "type": "integer",
+        "default": "1"
+      },
+      {
+        "name": "version",
+        "type": "string",
+        "default": "{mqtt, version"
+      },
+      {
+        "name": "topic",
+        "type": "binary",
+        "default": "undefined"
+      },
+      {
+        "name": "topic_field",
+        "type": "binary",
+        "default": "undefined"
+      },
+      {
+        "name": "topic_lambda",
+        "type": "lambda",
+        "default": "undefined"
+      },
+      {
+        "name": "retained",
+        "type": "is_set",
+        "default": ""
+      },
+      {
+        "name": "ssl",
+        "type": "is_set",
+        "default": "{mqtt, ssl, enable"
+      },
+      {
+        "name": "safe",
+        "type": "boolean",
+        "default": "false"
+      },
+      {
+        "name": "max_mem_queue_size",
+        "type": "integer",
+        "default": "700"
+      },
+      {
+        "name": "use_pool",
+        "type": "boolean",
+        "default": "{mqtt_pub_pool, enable"
+      },
+      {
+        "name": "request_ack",
+        "type": "boolean",
+        "default": "false"
+      },
+      {
+        "name": "add_seq_check",
+        "type": "boolean",
+        "default": "{seq_check, enable"
+      },
+      {
+        "name": "seq_check_topic_depth",
+        "type": "integer",
+        "default": "{seq_check, topic_depth"
+      }
+    ]
+  },
+  "mqtt_subscribe": {
+    "module": "esp_mqtt_subscribe",
+    "options": [
+      {
+        "name": "host",
+        "type": "binary",
+        "default": "{mqtt, host"
+      },
+      {
+        "name": "port",
+        "type": "integer",
+        "default": "{mqtt, port"
+      },
+      {
+        "name": "user",
+        "type": "string",
+        "default": "{mqtt, user"
+      },
+      {
+        "name": "pass",
+        "type": "string",
+        "default": "{mqtt, pass"
+      },
+      {
+        "name": "client_id",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "qos",
+        "type": "integer",
+        "default": "1"
+      },
+      {
+        "name": "version",
+        "type": "string",
+        "default": "{mqtt, version"
+      },
+      {
+        "name": "topic",
+        "type": "binary",
+        "default": "undefined"
+      },
+      {
+        "name": "topics",
+        "type": "binary_list",
+        "default": "undefined"
+      },
+      {
+        "name": "dt_field",
+        "type": "string",
+        "default": "<<\"ts\">>"
+      },
+      {
+        "name": "dt_format",
+        "type": "string",
+        "default": "?TF_TS_MILLI"
+      },
+      {
+        "name": "include_topic",
+        "type": "bool",
+        "default": "true"
+      },
+      {
+        "name": "topic_as",
+        "type": "string",
+        "default": "<<\"topic\">>"
+      },
+      {
+        "name": "as",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "ssl",
+        "type": "is_set",
+        "default": "{mqtt, ssl, enable"
+      }
+    ]
+  },
+  "multi_map": {
+    "module": "esp_multi_map",
+    "options": [
+      {
+        "name": "fields",
+        "type": "string_list",
+        "default": ""
+      },
+      {
+        "name": "match_fields",
+        "type": "string_list",
+        "default": ""
+      },
+      {
+        "name": "as",
+        "type": "string_list",
+        "default": "undefined"
+      },
+      {
+        "name": "lookup",
+        "type": "any",
+        "default": ""
+      },
+      {
+        "name": "select_fields",
+        "type": "string_list",
+        "default": ""
+      }
+    ]
+  },
+  "oracle_query": {
+    "module": "esp_oracle_query",
+    "options": [
+      {
+        "name": "host",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "port",
+        "type": "integer",
+        "default": "1521"
+      },
+      {
+        "name": "user",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "pass",
+        "type": "string",
+        "default": "<<>>"
+      },
+      {
+        "name": "service_name",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "query",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "result_type",
+        "type": "string",
+        "default": "<<\"batch\">>"
+      },
+      {
+        "name": "time_field",
+        "type": "string",
+        "default": "<<\"ts\">>"
+      },
+      {
+        "name": "every",
+        "type": "duration",
+        "default": "<<\"5s\">>"
+      },
+      {
+        "name": "align",
+        "type": "is_set",
+        "default": "false"
+      },
+      {
+        "name": "limit",
+        "type": "string",
+        "default": "<<\"30\">>"
+      }
+    ]
+  },
+  "parser": {
+    "module": "esp_parser",
+    "options": [
+      {
+        "name": "field",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "as",
+        "type": "string",
+        "default": "<<\"data\">>"
+      },
+      {
+        "name": "parser",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "changed",
+        "type": "is_set",
+        "default": "false"
+      }
+    ]
+  },
+  "path_split": {
+    "module": "esp_path_split",
+    "options": [
+      {
+        "name": "include_name",
+        "type": "boolean",
+        "default": "true"
+      },
+      {
+        "name": "include_as",
+        "type": "string",
+        "default": "<<\"name\">>"
+      }
+    ]
+  },
+  "percentile": {
+    "module": "esp_percentile",
+    "options": [
+      {
+        "name": "fields",
+        "type": "string_list",
+        "default": ""
+      },
+      {
+        "name": "as",
+        "type": "string_list",
+        "default": "undefined"
+      },
+      {
+        "name": "keep_last",
+        "type": "boolean",
+        "default": "true"
+      },
+      {
+        "name": "at",
+        "type": "integer",
+        "default": "75"
+      }
+    ]
+  },
+  "postgre_out": {
+    "module": "esp_postgre_out",
+    "options": [
+      {
+        "name": "host",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "port",
+        "type": "integer",
+        "default": ""
+      },
+      {
+        "name": "user",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "pass",
+        "type": "string",
+        "default": "<<>>"
+      },
+      {
+        "name": "database",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "table",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "db_fields",
+        "type": "string_list",
+        "default": "[]"
+      },
+      {
+        "name": "faxe_fields",
+        "type": "string_list",
+        "default": "[]"
+      }
+    ]
+  },
+  "postgre_statement": {
+    "module": "esp_postgre_statement",
+    "options": [
+      {
+        "name": "host",
+        "type": "string",
+        "default": "{crate, host"
+      },
+      {
+        "name": "port",
+        "type": "integer",
+        "default": "{crate, port"
+      },
+      {
+        "name": "tls",
+        "type": "boolean",
+        "default": "{crate, tls, enable"
+      },
+      {
+        "name": "user",
+        "type": "string",
+        "default": "{crate, user"
+      },
+      {
+        "name": "pass",
+        "type": "string",
+        "default": "{crate, pass"
+      },
+      {
+        "name": "statement",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "statement_field",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "retries",
+        "type": "integer",
+        "default": "2"
+      },
+      {
+        "name": "start_on_trigger",
+        "type": "boolean",
+        "default": "false"
+      },
+      {
+        "name": "every",
+        "type": "duration",
+        "default": "undefined"
+      },
+      {
+        "name": "result_type",
+        "type": "string",
+        "default": "<<\"batch\">>"
+      }
+    ]
+  },
+  "rename": {
+    "module": "esp_rename",
+    "options": [
+      {
+        "name": "fields",
+        "type": "binary_list",
+        "default": "[]"
+      },
+      {
+        "name": "as_fields",
+        "type": "list",
+        "default": "[]"
+      },
+      {
+        "name": "tags",
+        "type": "binary_list",
+        "default": "[]"
+      },
+      {
+        "name": "as_tags",
+        "type": "binary_list",
+        "default": "[]"
+      }
+    ]
+  },
+  "s7read": {
+    "module": "esp_s7read",
+    "options": [
+      {
+        "name": "ip",
+        "type": "binary",
+        "default": ""
+      },
+      {
+        "name": "port",
+        "type": "integer",
+        "default": "102"
+      },
+      {
+        "name": "every",
+        "type": "duration",
+        "default": "undefined"
+      },
+      {
+        "name": "align",
+        "type": "is_set",
+        "default": ""
+      },
+      {
+        "name": "slot",
+        "type": "integer",
+        "default": "1"
+      },
+      {
+        "name": "rack",
+        "type": "integer",
+        "default": "0"
+      },
+      {
+        "name": "vars",
+        "type": "string_list",
+        "default": ""
+      },
+      {
+        "name": "vars_prefix",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "as",
+        "type": "binary_list",
+        "default": "undefined"
+      },
+      {
+        "name": "as_prefix",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "diff",
+        "type": "is_set",
+        "default": ""
+      },
+      {
+        "name": "merge_field",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "byte_offset",
+        "type": "integer",
+        "default": "0"
+      },
+      {
+        "name": "use_pool",
+        "type": "bool",
+        "default": "{s7pool, enable"
+      },
+      {
+        "name": "standalone",
+        "type": "bool",
+        "default": "true"
+      },
+      {
+        "name": "optimized",
+        "type": "bool",
+        "default": "{s7reader, optimized"
+      },
+      {
+        "name": "native",
+        "type": "bool",
+        "default": "false"
+      }
+    ]
+  },
+  "sample": {
+    "module": "esp_sample",
+    "options": [
+      {
+        "name": "rate",
+        "type": "any",
+        "default": ""
+      }
+    ]
+  },
+  "set": {
+    "module": "esp_set",
+    "options": [
+      {
+        "name": "fields",
+        "type": "string_list",
+        "default": "[]"
+      },
+      {
+        "name": "field_values",
+        "type": "list",
+        "default": "[]"
+      },
+      {
+        "name": "tags",
+        "type": "string_list",
+        "default": "[]"
+      },
+      {
+        "name": "tag_values",
+        "type": "string_list",
+        "default": "[]"
+      }
+    ]
+  },
+  "shift": {
+    "module": "esp_shift",
+    "options": [
+      {
+        "name": "offset",
+        "type": "duration",
+        "default": "<<\"-30s\">>"
+      }
+    ]
+  },
+  "state_change": {
+    "module": "esp_state_change",
+    "options": [
+      {
+        "name": "lambda",
+        "type": "lambda",
+        "default": ""
+      },
+      {
+        "name": "enter_as",
+        "type": "string",
+        "default": "<<\"state_entered\">>"
+      },
+      {
+        "name": "leave_as",
+        "type": "string",
+        "default": "<<\"state_left\">>"
+      },
+      {
+        "name": "state_id_as",
+        "type": "string",
+        "default": "<<\"state_id\">>"
+      },
+      {
+        "name": "enter",
+        "type": "is_set",
+        "default": "undefined"
+      },
+      {
+        "name": "leave",
+        "type": "is_set",
+        "default": "undefined"
+      },
+      {
+        "name": "enter_keep",
+        "type": "string_list",
+        "default": "[]"
+      },
+      {
+        "name": "leave_keep",
+        "type": "string_list",
+        "default": "[]"
+      },
+      {
+        "name": "keep",
+        "type": "string_list",
+        "default": "[]"
+      },
+      {
+        "name": "prefix",
+        "type": "string",
+        "default": "<<\"\">>"
+      },
+      {
+        "name": "unit",
+        "type": "duration",
+        "default": "<<\"1s\">>"
+      }
+    ]
+  },
+  "state_change_bulk": {
+    "module": "esp_state_change_bulk",
+    "options": [
+      {
+        "name": "lambda_pattern",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "state_value",
+        "type": "any",
+        "default": "undefined"
+      },
+      {
+        "name": "field",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "exclude_fields",
+        "type": "string_list",
+        "default": "[]"
+      },
+      {
+        "name": "enter_as",
+        "type": "binary",
+        "default": "<<\"state_entered\">>"
+      },
+      {
+        "name": "leave_as",
+        "type": "binary",
+        "default": "<<\"state_left\">>"
+      },
+      {
+        "name": "state_id_as",
+        "type": "binary",
+        "default": "<<\"state_id\">>"
+      },
+      {
+        "name": "enter",
+        "type": "is_set",
+        "default": "undefined"
+      },
+      {
+        "name": "leave",
+        "type": "is_set",
+        "default": "undefined"
+      },
+      {
+        "name": "enter_keep",
+        "type": "string_list",
+        "default": "[]"
+      },
+      {
+        "name": "leave_keep",
+        "type": "string_list",
+        "default": "[]"
+      },
+      {
+        "name": "prefix",
+        "type": "string",
+        "default": "<<\"\">>"
+      },
+      {
+        "name": "unit",
+        "type": "duration",
+        "default": "<<\"1s\">>"
+      }
+    ]
+  },
+  "state_count": {
+    "module": "esp_state_count",
+    "options": [
+      {
+        "name": "lambda",
+        "type": "lambda",
+        "default": ""
+      },
+      {
+        "name": "as",
+        "type": "binary",
+        "default": "<<\"state_count\">>"
+      }
+    ]
+  },
+  "state_duration": {
+    "module": "esp_state_duration",
+    "options": [
+      {
+        "name": "lambda",
+        "type": "lambda",
+        "default": ""
+      },
+      {
+        "name": "as",
+        "type": "binary",
+        "default": "<<\"state_duration\">>"
+      },
+      {
+        "name": "unit",
+        "type": "duration",
+        "default": "<<\"1s\">>"
+      },
+      {
+        "name": "emit_total",
+        "type": "is_set",
+        "default": "false"
+      }
+    ]
+  },
+  "state_sequence": {
+    "module": "esp_state_sequence",
+    "options": [
+      {
+        "name": "states",
+        "type": "lambda_list",
+        "default": ""
+      },
+      {
+        "name": "within",
+        "type": "duration_list",
+        "default": ""
+      },
+      {
+        "name": "strict",
+        "type": "is_set",
+        "default": "false"
+      },
+      {
+        "name": "output",
+        "type": "string",
+        "default": "<<\"last\">>"
+      }
+    ]
+  },
+  "statistics": {
+    "module": "esp_statistics",
+    "options": [
+      {
+        "name": "field",
+        "type": "binary",
+        "default": ""
+      },
+      {
+        "name": "fields",
+        "type": "string_list",
+        "default": ""
+      },
+      {
+        "name": "as",
+        "type": "string_list",
+        "default": "undefined"
+      },
+      {
+        "name": "modules",
+        "type": "string_list",
+        "default": ""
+      }
+    ]
+  },
+  "stats": {
+    "module": "esp_stats",
+    "options": [
+      {
+        "name": "field",
+        "type": "binary",
+        "default": ""
+      },
+      {
+        "name": "as",
+        "type": "binary",
+        "default": "undefined"
+      },
+      {
+        "name": "func",
+        "type": "atomlist",
+        "default": "undefined"
+      }
+    ]
+  },
+  "tcppoll": {
+    "module": "esp_tcppoll",
+    "options": [
+      {
+        "name": "ip",
+        "type": "binary",
+        "default": ""
+      },
+      {
+        "name": "port",
+        "type": "integer",
+        "default": ""
+      },
+      {
+        "name": "every",
+        "type": "duration",
+        "default": "\"1s\""
+      },
+      {
+        "name": "count",
+        "type": "integer",
+        "default": "1"
+      },
+      {
+        "name": "prefix",
+        "type": "string",
+        "default": "<<\"val_\">>"
+      }
+    ]
+  },
+  "tcp_recv": {
+    "module": "esp_tcp_recv",
+    "options": [
+      {
+        "name": "ip",
+        "type": "binary",
+        "default": "undefined"
+      },
+      {
+        "name": "port",
+        "type": "integer",
+        "default": ""
+      },
+      {
+        "name": "as",
+        "type": "binary",
+        "default": "<<\"data\">>"
+      },
+      {
+        "name": "as",
+        "type": "binary",
+        "default": "undefined"
+      },
+      {
+        "name": "extract",
+        "type": "is_set",
+        "default": ""
+      },
+      {
+        "name": "parser",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "changed",
+        "type": "is_set",
+        "default": "false"
+      },
+      {
+        "name": "packet",
+        "type": "any",
+        "default": "2"
+      }
+    ]
+  },
+  "tcp_recv_line": {
+    "module": "esp_tcp_recv_line",
+    "options": [
+      {
+        "name": "ip",
+        "type": "binary",
+        "default": ""
+      },
+      {
+        "name": "port",
+        "type": "integer",
+        "default": ""
+      },
+      {
+        "name": "as",
+        "type": "binary",
+        "default": "<<\"data\">>"
+      },
+      {
+        "name": "extract",
+        "type": "is_set",
+        "default": ""
+      },
+      {
+        "name": "line_delimiter",
+        "type": "binary",
+        "default": "$\\n"
+      },
+      {
+        "name": "parser",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "min_length",
+        "type": "integer",
+        "default": "61"
+      },
+      {
+        "name": "changed",
+        "type": "is_set",
+        "default": ""
+      }
+    ]
+  },
+  "tcp_send": {
+    "module": "esp_tcp_send",
+    "options": [
+      {
+        "name": "ip",
+        "type": "binary",
+        "default": ""
+      },
+      {
+        "name": "port",
+        "type": "integer",
+        "default": ""
+      },
+      {
+        "name": "packet",
+        "type": "any",
+        "default": "2"
+      },
+      {
+        "name": "every",
+        "type": "duration",
+        "default": "undefined"
+      },
+      {
+        "name": "response_as",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "response_json",
+        "type": "is_set",
+        "default": "false"
+      },
+      {
+        "name": "response_timeout",
+        "type": "duration",
+        "default": "<<\"5s\">>"
+      },
+      {
+        "name": "msg_text",
+        "type": "string",
+        "default": "undefined"
+      },
+      {
+        "name": "msg_json",
+        "type": "string",
+        "default": "undefined"
+      }
+    ]
+  },
+  "tcp_serve": {
+    "module": "esp_tcp_serve",
+    "options": [
+      {
+        "name": "port",
+        "type": "integer",
+        "default": ""
+      },
+      {
+        "name": "packet",
+        "type": "any",
+        "default": "2"
+      },
+      {
+        "name": "format",
+        "type": "string",
+        "default": "<<\"json\">>"
+      },
+      {
+        "name": "field",
+        "type": "string",
+        "default": "undefined"
+      }
+    ]
+  },
+  "time_diff": {
+    "module": "esp_time_diff",
+    "options": [
+      {
+        "name": "as",
+        "type": "binary",
+        "default": "<<\"timediff\">>"
+      },
+      {
+        "name": "default",
+        "type": "any",
+        "default": "0"
+      }
+    ]
+  },
+  "time_elapsed": {
+    "module": "esp_time_elapsed",
+    "options": [
+      {
+        "name": "as",
+        "type": "binary",
+        "default": "<<\"elapsed\">>"
+      },
+      {
+        "name": "default",
+        "type": "any",
+        "default": "0"
+      }
+    ]
+  },
+  "triggered_timeout": {
+    "module": "esp_triggered_timeout",
+    "options": [
+      {
+        "name": "timeout",
+        "type": "duration",
+        "default": ""
+      },
+      {
+        "name": "fields",
+        "type": "string_list",
+        "default": "[]"
+      },
+      {
+        "name": "field_values",
+        "type": "list",
+        "default": "[]"
+      },
+      {
+        "name": "cancel_fields",
+        "type": "string_list",
+        "default": "[]"
+      },
+      {
+        "name": "cancel_field_values",
+        "type": "list",
+        "default": "[]"
+      },
+      {
+        "name": "timeout_trigger_port",
+        "type": "integer",
+        "default": "1"
+      },
+      {
+        "name": "timeout_trigger",
+        "type": "lambda",
+        "default": "undefined"
+      },
+      {
+        "name": "cancel_trigger",
+        "type": "lambda",
+        "default": "undefined"
+      }
+    ]
+  },
+  "udp_recv": {
+    "module": "esp_udp_recv",
+    "options": [
+      {
+        "name": "port",
+        "type": "integer",
+        "default": ""
+      },
+      {
+        "name": "as",
+        "type": "binary",
+        "default": "<<\"data\">>"
+      },
+      {
+        "name": "parser",
+        "type": "atom",
+        "default": "undefined"
+      },
+      {
+        "name": "changed",
+        "type": "is_set",
+        "default": "false"
+      }
+    ]
+  },
+  "udp_send": {
+    "module": "esp_udp_send",
+    "options": [
+      {
+        "name": "host",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "port",
+        "type": "integer",
+        "default": ""
+      }
+    ]
+  },
+  "unbatch": {
+    "module": "esp_unbatch",
+    "options": []
+  },
+  "union": {
+    "module": "esp_union",
+    "options": []
+  },
+  "value_diff": {
+    "module": "esp_value_diff",
+    "options": [
+      {
+        "name": "fields",
+        "type": "string_list",
+        "default": ""
+      },
+      {
+        "name": "as",
+        "type": "string_list",
+        "default": "undefined"
+      },
+      {
+        "name": "default",
+        "type": "number",
+        "default": "undefined"
+      },
+      {
+        "name": "mode",
+        "type": "string",
+        "default": "?MODE_ABS"
+      }
+    ]
+  },
+  "value_emitter": {
+    "module": "esp_value_emitter",
+    "options": [
+      {
+        "name": "every",
+        "type": "duration",
+        "default": "<<\"5s\">>"
+      },
+      {
+        "name": "jitter",
+        "type": "duration",
+        "default": "<<\"0ms\">>"
+      },
+      {
+        "name": "type",
+        "type": "any",
+        "default": "<<\"point\">>"
+      },
+      {
+        "name": "batch_size",
+        "type": "integer",
+        "default": "5"
+      },
+      {
+        "name": "align",
+        "type": "is_set",
+        "default": ""
+      },
+      {
+        "name": "fields",
+        "type": "binary_list",
+        "default": "[<<\"val\">>]"
+      },
+      {
+        "name": "format",
+        "type": "atom",
+        "default": "undefined"
+      },
+      {
+        "name": "mode",
+        "type": "string",
+        "default": "<<\"random\">>"
+      }
+    ]
+  },
+  "where": {
+    "module": "esp_where",
+    "options": [
+      {
+        "name": "lambda",
+        "type": "lambda",
+        "default": ""
+      },
+      {
+        "name": "emit_empty",
+        "type": "boolean",
+        "default": "false"
+      }
+    ]
+  },
+  "win_clock": {
+    "module": "esp_win_clock",
+    "options": [
+      {
+        "name": "period",
+        "type": "duration",
+        "default": "undefined"
+      },
+      {
+        "name": "every",
+        "type": "duration",
+        "default": ""
+      },
+      {
+        "name": "align",
+        "type": "is_set",
+        "default": "false"
+      },
+      {
+        "name": "fill_period",
+        "type": "is_set",
+        "default": "false"
+      }
+    ]
+  },
+  "win_event": {
+    "module": "esp_win_event",
+    "options": [
+      {
+        "name": "period",
+        "type": "integer",
+        "default": "undefined"
+      },
+      {
+        "name": "every",
+        "type": "integer",
+        "default": "4"
+      },
+      {
+        "name": "fill_period",
+        "type": "is_set",
+        "default": ""
+      }
+    ]
+  },
+  "win_session": {
+    "module": "esp_win_session",
+    "options": [
+      {
+        "name": "session_timeout",
+        "type": "duration",
+        "default": "<<\"30s\">>"
+      }
+    ]
+  },
+  "win_time": {
+    "module": "esp_win_time",
+    "options": [
+      {
+        "name": "period",
+        "type": "duration",
+        "default": "undefined"
+      },
+      {
+        "name": "every",
+        "type": "duration",
+        "default": ""
+      },
+      {
+        "name": "fill_period",
+        "type": "is_set",
+        "default": ""
+      }
+    ]
+  },
+  "agg": {
+    "module": "c_agg",
+    "options": []
+  },
+  "noop": {
+    "module": "c_noop",
+    "options": []
+  },
+  "avg": {
+    "module": "esp_avg",
+    "options": []
+  },
+  "bottom": {
+    "module": "esp_bottom",
+    "options": []
+  },
+  "count": {
+    "module": "esp_count",
+    "options": []
+  },
+  "count_distinct": {
+    "module": "esp_count_distinct",
+    "options": []
+  },
+  "distinct": {
+    "module": "esp_distinct",
+    "options": []
+  },
+  "elapsed": {
+    "module": "esp_elapsed",
+    "options": []
+  },
+  "first": {
+    "module": "esp_first",
+    "options": []
+  },
+  "geometric_mean": {
+    "module": "esp_geometric_mean",
+    "options": []
+  },
+  "kurtosis": {
+    "module": "esp_kurtosis",
+    "options": []
+  },
+  "last": {
+    "module": "esp_last",
+    "options": []
+  },
+  "max": {
+    "module": "esp_max",
+    "options": []
+  },
+  "mean": {
+    "module": "esp_mean",
+    "options": []
+  },
+  "median": {
+    "module": "esp_median",
+    "options": []
+  },
+  "min": {
+    "module": "esp_min",
+    "options": []
+  },
+  "range": {
+    "module": "esp_range",
+    "options": []
+  },
+  "skew": {
+    "module": "esp_skew",
+    "options": []
+  },
+  "stats_difference": {
+    "module": "esp_stats_difference",
+    "options": []
+  },
+  "stats_dist_count": {
+    "module": "esp_stats_dist_count",
+    "options": []
+  },
+  "stddev": {
+    "module": "esp_stddev",
+    "options": []
+  },
+  "sum": {
+    "module": "esp_sum",
+    "options": []
+  },
+  "top": {
+    "module": "esp_top",
+    "options": []
+  },
+  "variance": {
+    "module": "esp_variance",
+    "options": []
+  }
+}

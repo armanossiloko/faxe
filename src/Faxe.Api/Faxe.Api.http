@@ -1,0 +1,6 @@
+@Faxe.Api_HostAddress = http://localhost:5203
+
+GET {{Faxe.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

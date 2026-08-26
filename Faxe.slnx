@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Faxe.Api/Faxe.Api.csproj" />
+    <Project Path="src/Faxe.Core/Faxe.Core.csproj" />
+    <Project Path="src/Faxe.Dfs/Faxe.Dfs.csproj" />
+    <Project Path="src/Faxe.Flow/Faxe.Flow.csproj" />
+    <Project Path="src/Faxe.Nodes/Faxe.Nodes.csproj" />
+    <Project Path="src/Faxe.Persistence/Faxe.Persistence.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Faxe.Tests/Faxe.Tests.csproj" />
+  </Folder>
+</Solution>
