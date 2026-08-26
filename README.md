@@ -1,6 +1,6 @@
 # faxe
 
-Flow-based data collector / data processor — **.NET 8**.
+Flow-based data collector / data processor — **.NET 10**.
 
 Faxe collects data from various sources, processes and routes it through DFS graphs, and can store data to various backends.
 
@@ -8,7 +8,7 @@ API and DFS behaviour follow the classic Faxe design (see [docs](https://heyoka.
 
 ## Requirements
 
-- .NET 8 SDK
+- .NET 10 SDK
 
 ## Build
 
